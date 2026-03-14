@@ -43,16 +43,20 @@ app.post('/render', async (req, res) => {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
+        '--disable-gpu',
         '--force-device-scale-factor=1',
+        '--js-flags=--max-old-space-size=256',
       ]
     });
 
+    // Record at 960×540 to stay within 512MB free tier RAM
+    // ffmpeg upscales to 1920×1080 during conversion
     const context = await browser.newContext({
-      viewport: { width: 1920, height: 1080 },
+      viewport: { width: 960, height: 540 },
       deviceScaleFactor: 1,
       recordVideo: {
         dir: tmpDir,
-        size: { width: 1920, height: 1080 }
+        size: { width: 960, height: 540 }
       }
     });
 
@@ -87,10 +91,10 @@ app.post('/render', async (req, res) => {
 
     console.log(`[render] Converting to MP4...`);
 
-    // Convert WebM → MP4
+    // Convert WebM → MP4, upscale 960×540 → 1920×1080
     execSync(
-      `ffmpeg -y -i "${webmPath}" -c:v libx264 -preset fast -crf 18 -movflags +faststart -pix_fmt yuv420p "${mp4File}"`,
-      { timeout: 30000 }
+      `ffmpeg -y -i "${webmPath}" -vf scale=1920:1080:flags=lanczos -c:v libx264 -preset fast -crf 18 -movflags +faststart -pix_fmt yuv420p "${mp4File}"`,
+      { timeout: 60000 }
     );
 
     const videoBuffer = fs.readFileSync(mp4File);
