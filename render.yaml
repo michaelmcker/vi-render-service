@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: vi-render
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 3001

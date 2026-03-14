@@ -1,0 +1,12 @@
+{
+  "name": "vi-render-service",
+  "version": "1.0.0",
+  "description": "Video render service for VI Studio — Playwright recordVideo",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "playwright": "^1.52.0"
+  }
+}
