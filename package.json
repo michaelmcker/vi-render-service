@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "express": "^4.21.0",
+    "hyperframes": "^0.4.20",
     "playwright": "^1.52.0"
   }
 }
