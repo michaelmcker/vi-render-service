@@ -442,6 +442,24 @@ function Stage({
     [displayTime, duration, playing]
   );
 
+  // Preview-UI toggle. Default (render mode) is a clean canvas with no chrome.
+  // Open the HTML with ?preview=1 to get the interactive scrubber + play/pause.
+  const isPreviewUI = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('preview');
+
+  if (!isPreviewUI) {
+    return (
+      <div style={{
+        position: 'absolute', inset: 0,
+        width, height, background, overflow: 'hidden',
+      }}>
+        <TimelineContext.Provider value={ctxValue}>
+          {children}
+        </TimelineContext.Provider>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={stageRef}
