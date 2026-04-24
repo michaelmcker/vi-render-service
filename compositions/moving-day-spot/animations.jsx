@@ -376,17 +376,26 @@ function Stage({
   // Hyperframes render-mode adapter.
   // Exposes window.__hf = { duration, seek } so the hyperframes renderer can
   // drive the playhead deterministically instead of rAF wall-clock playback.
+  // Delays exposure until document.fonts.ready so worker-level font-load races
+  // can't shift text metrics between captured frames.
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.__hf = {
-      duration,
-      seek: (t) => {
-        setPlaying(false);
-        setTime(clamp(t, 0, duration));
-      },
+    const expose = () => {
+      window.__hf = {
+        duration,
+        seek: (t) => {
+          setPlaying(false);
+          setTime(clamp(t, 0, duration));
+        },
+      };
+      window.__timelines = window.__timelines || {};
+      window.__timelines['moving-day-spot'] = { duration: () => duration };
     };
-    window.__timelines = window.__timelines || {};
-    window.__timelines['moving-day-spot'] = { duration: () => duration };
+    if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(expose);
+    } else {
+      expose();
+    }
   }, [duration]);
 
   // Animation loop
