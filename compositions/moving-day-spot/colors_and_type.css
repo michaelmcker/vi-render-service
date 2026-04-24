@@ -1,0 +1,250 @@
+/* ==========================================================================
+   Vertical Impression — Design Tokens
+   Colors, type, spacing, radii, shadow.
+   Pulled from verticalimpression.com (Webflow site) + logo analysis.
+   NOTE: Exact webfont + precise brand hexes could not be scraped (CORS).
+   Fonts substituted from Google Fonts; flagged in README.
+   ========================================================================== */
+
+/* ---------- Brand fonts: Gilroy (uploaded) ---------- */
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-Light.otf') format('opentype');         font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-LightItalic.otf') format('opentype');   font-weight: 300; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-Regular.otf') format('opentype');       font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-RegularItalic.otf') format('opentype'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-Medium.otf') format('opentype');        font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-MediumItalic.otf') format('opentype');  font-weight: 500; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-SemiBold.otf') format('opentype');      font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-SemiBoldItalic.otf') format('opentype');font-weight: 600; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-Bold.otf') format('opentype');          font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-BoldItalic.otf') format('opentype');    font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-Black.otf') format('opentype');         font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Gilroy'; src: url('fonts/Gilroy-BlackItalic.otf') format('opentype');   font-weight: 800; font-style: italic; font-display: swap; }
+
+:root {
+  /* ---------------- Brand palette ---------------- */
+  /* Navy — the wordmark "vertical impression" color */
+  --navy-950: #0B2340;
+  --navy-900: #0F2B4D;         /* primary wordmark */
+  --navy-800: #16345B;
+  --navy-700: #1F3F6C;
+  --navy-600: #2A4D81;
+
+  /* Teal / Cyan — the chevron/brand accent (the "up-arrow" logo mark) */
+  --teal-200: #BCF3EE;           /* tint used in logo fill behind chevron */
+  --teal-300: #7CE6DC;
+  --teal-400: #3DD6C6;            /* chevron body */
+  --teal-500: #22C3B2;            /* primary accent */
+  --teal-600: #159E90;
+
+  /* Blue — secondary accent (DPAA blue, CTA blue lockups) */
+  --blue-500: #1E7BD6;
+  --blue-600: #155FA8;
+
+  /* Purple — brand secondary accent */
+  --purple-300: #C9B8FF;
+  --purple-500: #6B4CE6;
+  --purple-600: #4F33C2;
+
+  /* ---------------- Neutrals ---------------- */
+  --white:    #FFFFFF;
+  --paper:    #FAFBFC;            /* off-white sections */
+  --cloud:    #F3F5F7;            /* cards, chips, subtle bg */
+  --mist:     #E6EAEF;            /* dividers, hairlines */
+  --ash:      #B8C0CA;            /* muted icon / disabled */
+  --slate:    #6B7684;            /* secondary text */
+  --graphite: #2B3340;            /* body text on light */
+  --ink:      #0B1220;            /* headings on light */
+
+  /* ---------------- Semantic surface / fg ---------------- */
+  --bg:         var(--white);
+  --bg-muted:   var(--paper);
+  --bg-panel:   var(--cloud);
+  --bg-invert:  var(--navy-900);
+
+  --fg-1:       var(--ink);       /* primary text */
+  --fg-2:       var(--graphite);  /* body */
+  --fg-3:       var(--slate);     /* secondary */
+  --fg-4:       var(--ash);       /* tertiary / disabled */
+  --fg-on-dark: var(--white);
+
+  --border:     var(--mist);
+  --border-strong: #C9D0DA;
+
+  --brand:            var(--navy-900);
+  --brand-accent:     var(--teal-500);
+  --brand-accent-2:   var(--purple-500);
+  --brand-accent-ink: var(--navy-900);
+  --link:          var(--navy-900);
+  --link-hover:    var(--teal-600);
+
+  /* ---------------- Typography ---------------- */
+  --font-display: 'Gilroy', system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-body:    'Gilroy', system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-mono:    ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Body scale (rem-based) */
+  --fs-xs:   12px;
+  --fs-sm:   14px;
+  --fs-base: 16px;
+  --fs-md:   18px;
+  --fs-lg:   20px;
+  --fs-xl:   24px;
+
+  /* Display scale */
+  --fs-h6:   18px;
+  --fs-h5:   22px;
+  --fs-h4:   28px;
+  --fs-h3:   36px;
+  --fs-h2:   52px;
+  --fs-h1:   72px;      /* hero headlines go big */
+  --fs-hero: 96px;
+
+  --lh-tight:  1.05;
+  --lh-snug:   1.2;
+  --lh-body:   1.55;
+  --lh-loose:  1.7;
+
+  --tracking-tight:  -0.02em;     /* display */
+  --tracking-normal: 0;
+  --tracking-wide:   0.08em;      /* "OUR STORY" eyebrows, all-caps */
+  --tracking-wider:  0.14em;
+
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+  --fw-extrabold:800;
+
+  /* ---------------- Spacing (4-pt scale) ---------------- */
+  --sp-0:  0;
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  24px;
+  --sp-6:  32px;
+  --sp-7:  48px;
+  --sp-8:  64px;
+  --sp-9:  96px;
+  --sp-10: 128px;
+  --sp-11: 160px;
+
+  /* ---------------- Radii ---------------- */
+  --r-xs:   4px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   24px;
+  --r-2xl:  32px;
+  --r-pill: 999px;
+
+  /* ---------------- Shadows ---------------- */
+  --shadow-xs: 0 1px 2px rgba(11,18,32,0.04);
+  --shadow-sm: 0 2px 6px rgba(11,18,32,0.06);
+  --shadow-md: 0 8px 24px rgba(11,18,32,0.08);
+  --shadow-lg: 0 20px 48px rgba(11,18,32,0.12);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.15);
+
+  /* ---------------- Motion ---------------- */
+  --ease-standard: cubic-bezier(.2,.7,.2,1);
+  --ease-out:      cubic-bezier(.16,1,.3,1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+
+  /* ---------------- Layout ---------------- */
+  --container-max: 1280px;
+  --container-pad: 24px;
+}
+
+/* ==========================================================================
+   Semantic element styles
+   ========================================================================== */
+html { font-size: var(--fs-base); color: var(--fg-1); background: var(--bg); }
+body {
+  font-family: var(--font-body);
+  font-weight: var(--fw-regular);
+  color: var(--fg-2);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headlines use Poppins, tight tracking, strong optical weight */
+h1, .h1, h2, .h2, h3, .h3, h4, .h4, h5, .h5, h6, .h6 {
+  font-family: var(--font-display);
+  color: var(--fg-1);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+h1, .h1 { font-size: var(--fs-h1); font-weight: var(--fw-bold); letter-spacing: -0.03em; }
+h2, .h2 { font-size: var(--fs-h2); font-weight: var(--fw-bold); }
+h3, .h3 { font-size: var(--fs-h3); font-weight: var(--fw-semibold); line-height: var(--lh-snug); }
+h4, .h4 { font-size: var(--fs-h4); font-weight: var(--fw-semibold); line-height: var(--lh-snug); }
+h5, .h5 { font-size: var(--fs-h5); font-weight: var(--fw-semibold); }
+h6, .h6 { font-size: var(--fs-h6); font-weight: var(--fw-semibold); }
+
+/* Hero headline — mixed weight + italic highlight is a brand motif */
+.display-hero {
+  font-family: var(--font-display);
+  font-size: var(--fs-hero);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  color: var(--fg-1);
+}
+
+/* Italic emphasis — e.g. "ready to pay attention", "waiting into wanting" */
+.emphasis-italic { font-style: italic; font-weight: inherit; }
+
+/* Eyebrow — small all-caps label above section titles ("OUR STORY") */
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--teal-600);
+}
+
+p, .p {
+  font-family: var(--font-body);
+  font-size: var(--fs-base);
+  line-height: var(--lh-body);
+  color: var(--fg-2);
+  margin: 0;
+}
+.p-lead  { font-size: var(--fs-lg); line-height: 1.5; color: var(--fg-2); }
+.p-small { font-size: var(--fs-sm); color: var(--fg-3); }
+.p-caption { font-size: var(--fs-xs); color: var(--fg-3); letter-spacing: 0.02em; }
+
+/* Big-stat number — used all over the site ("5900+", "500M") */
+.stat-num {
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: var(--fw-bold);
+  color: var(--navy-900);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-1);
+}
+
+a { color: var(--link); text-decoration: none; transition: color var(--dur-fast) var(--ease-standard); }
+a:hover { color: var(--link-hover); }
+
+code, pre, .mono { font-family: var(--font-mono); font-size: 0.95em; }
+
+::selection { background: var(--teal-300); color: var(--navy-900); }
+
+/* Utility backgrounds */
+.bg-navy  { background: var(--navy-900); color: var(--fg-on-dark); }
+.bg-teal  { background: var(--teal-500); color: var(--navy-900); }
+.bg-cloud { background: var(--cloud); }
+.bg-paper { background: var(--paper); }
