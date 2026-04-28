@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.vi.hermes.bot</string>
+
+    <!-- The Telegram bot: handles her commands and draft-approval taps.
+         Separate job from the daemon so a bot crash doesn't kill the watcher. -->
+    <key>WorkingDirectory</key>
+    <string>/Users/nikki/hermes</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/nikki/hermes/.venv/bin/python</string>
+        <string>-m</string>
+        <string>app.bot</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>HERMES_HOME</key>
+        <string>/Users/nikki/hermes</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/nikki/hermes/logs/bot.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/nikki/hermes/logs/bot.err.log</string>
+</dict>
+</plist>

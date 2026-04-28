@@ -1,0 +1,84 @@
+# Hermes importance rules.
+# Copy to importance.yaml and edit. The daemon hot-reloads on file change.
+#
+# Use the Telegram bot to edit live: /vip add ceo@acme.com, /watch #deals, etc.
+# Direct YAML edits are also fine.
+
+email:
+  # Senders that always trigger an alert, no LLM second-guessing.
+  vip_senders:
+    - bookings@verticalimpression.com
+    # - ceo@bigprospect.com
+
+  # Whole domains worth flagging.
+  vip_domains:
+    - verticalimpression.com  # internal — flag founders, leadership, etc.
+
+  # Account names to watch across senders + bodies (case-insensitive substring).
+  watched_accounts:
+    # - "Acme Corp"
+    # - "Globex"
+
+  # Keywords/phrases that bump priority regardless of sender.
+  signal_keywords:
+    - "renewal"
+    - "contract"
+    - "pricing"
+    - "introduction"
+    - "intro to"
+    - "warm intro"
+    - "decision"
+    - "next steps"
+
+  # Senders to always demote (newsletters, calendar invites from herself, etc.).
+  mute_senders:
+    - calendar-notification@google.com
+    - noreply@
+    - no-reply@
+
+  mute_subject_patterns:
+    - "out of office"
+    - "automatic reply"
+
+slack:
+  alert_on_dm: true
+  alert_on_mention: true
+
+  # Channels where every message gets a "needs response?" classifier pass.
+  monitor_channels:
+    # - "#deals-pipeline"
+    # - "#cs-escalations"
+    # - "#leadership"
+
+  # Slack user IDs (preferred) or emails. Get IDs via /vip add @user in Telegram.
+  vip_users:
+    # - U0123ABC
+    # - ceo@verticalimpression.com
+
+  # If the LLM classifier is on, it decides whether a message needs her attention.
+  # Set false to alert on EVERY message in monitor_channels (firehose).
+  needs_response_classifier: true
+
+# Drafting style — used for both email and Slack drafts.
+voice:
+  tone: "warm, direct, sales-leader. Short sentences. No corporate fluff."
+  signoff: "— Nikki"
+  forbidden_phrases:
+    - "I hope this email finds you well"
+    - "circling back"
+    - "synergy"
+  examples:
+    # Paste 2-3 of her actual past replies here for style grounding.
+    # The daemon reads this verbatim into the draft prompt.
+    - |
+      Subject: Re: pricing for Q3
+      Hey Sam — yes, the numbers we discussed still hold. I'll send a one-pager
+      tomorrow morning with the breakdown. Quick Q: who else from your side
+      should be on that thread?
+      — Nikki
+
+# Notification noise budget.
+budget:
+  max_alerts_per_hour: 8
+  morning_briefing_at: "07:00"
+  quiet_hours: "21:00-07:00"

@@ -1,0 +1,10 @@
+secrets/*
+!secrets/.gitkeep
+.env
+state.sqlite
+state.sqlite-journal
+__pycache__/
+*.pyc
+.venv/
+.python-version
+logs/
