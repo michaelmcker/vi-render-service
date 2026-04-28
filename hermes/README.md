@@ -22,11 +22,12 @@ Desktop is the fallback if she ever needs to redo OAuth from the road.
 | Gmail triage → Telegram alerts | Working |
 | Gmail draft replies (button-triggered) | Working |
 | Calendar read (briefing context) | Working |
+| Docs read + write (research briefs, recaps) | Working |
 | Slack mentions/DMs/monitored channels → Telegram alerts | Working |
 | Slack reply drafts posted as her | Working |
 | Morning briefing | Working |
 | Telegram commands: `/health`, `/today`, `/vip`, `/watch`, `/quiet` | Working |
-| Drive / Docs / Sheets | Stub (extra OAuth required when wired up) |
+| Drive / Sheets | Stub (extra OAuth required when wired up) |
 | Apollo direct API | Stub |
 | Salesforce via Zapier | Stub |
 | Granola transcripts | Stub |
@@ -79,11 +80,12 @@ cp config/importance.example.yaml config/importance.yaml
 
 1. **Cloud Console** (`console.cloud.google.com`):
    - New project: `hermes-nikki`.
-   - APIs & Services → Library → enable: Gmail API, Google Calendar API.
+   - APIs & Services → Library → enable: Gmail API, Google Calendar API,
+     Google Docs API.
    - APIs & Services → OAuth consent screen → User Type **Internal** → fill app
      name + support email. (Internal requires VI to be on Google Workspace.)
    - Add the scopes listed in `app/google/auth.py` (gmail.readonly,
-     gmail.compose, calendar.readonly, openid, userinfo.email).
+     gmail.compose, calendar.readonly, documents, openid, userinfo.email).
    - Credentials → Create → OAuth client ID → **Desktop app** → Download JSON.
    - Move the JSON to `~/hermes/secrets/google_client.json`.
 2. Run the OAuth flow on the Mac:
@@ -93,11 +95,19 @@ cp config/importance.example.yaml config/importance.yaml
    Sign in as `nikki@verticalimpression.com`, accept consent, refresh token
    saves to `secrets/google_token.json`.
 
-**Why these scopes** — `gmail.readonly + gmail.compose` permits read and draft
-creation only. The Google API rejects any call to delete, trash, or send mail
-at the edge — even if the daemon's code were buggy, those operations are
-impossible. `calendar.readonly` is read-only for the same reason. Drive, Docs,
-and Sheets are intentionally NOT requested in v1.
+**Why these scopes** —
+- `gmail.readonly + gmail.compose` covers read and draft creation. Google's
+  `gmail.compose` scope inherently includes send capability ("Manage drafts and
+  send messages" per Google's docs); there is no narrower scope. Hermes
+  enforces "never send" at the HTTP-transport layer in `app/google/gmail.py`
+  via `_GmailSafeHttp`, which refuses any URL containing `/messages/send`,
+  `/drafts/send`, `/trash`, `/untrash`, `/batchDelete`, `/batchModify`, plus
+  any DELETE method against `/messages/` or `/threads/`. This is in addition
+  to the code-surface guarantee that no `send()` function exists.
+- `calendar.readonly` — read-only.
+- `documents` — full read+write for Docs Hermes creates (research briefs,
+  recaps).
+- Drive and Sheets are intentionally NOT requested in v1.
 
 ### 5. Slack
 
@@ -223,9 +233,12 @@ hermes/
   password — FileVault, locked screen, no shared user.
 - All daemon connections are outbound. Nothing inbound, no public URL,
   no port forwarding, no tunnel.
-- Gmail scopes block delete/trash/send at the API edge.
-- `app/google/gmail.py::send` is a tripwire that raises if any future code path
-  ever tries to send mail.
+- Gmail send/trash/delete/batch-modify are blocked at the HTTP transport
+  layer in Hermes (`_GmailSafeHttp`). No matter what the OAuth scope grants,
+  these calls cannot leave the daemon. Three layers of defense:
+    1. No `send`/`trash`/`delete` function exists in `app/google/gmail.py`.
+    2. The HTTP transport refuses these URIs before they reach Google.
+    3. `app/google/gmail.py::send` is an explicit tripwire.
 - Telegram bot is gated to `TELEGRAM_CHAT_ID` only — messages from any other
   chat are ignored.
 - Slack user token = full impersonation. Same risk profile as her Slack

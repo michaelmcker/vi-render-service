@@ -29,13 +29,19 @@ CLIENT_SECRETS = SECRETS_DIR / "google_client.json"
 TOKEN_PATH = SECRETS_DIR / "google_token.json"
 
 # Order matters for Google's consent screen display.
-# To extend (Drive/Docs/Sheets), append the scope and re-run `oauth_setup google`.
+# To extend (Drive/Sheets), append the scope and re-run `oauth_setup google`.
 SCOPES = [
-    # Gmail: READ + CREATE-DRAFT only. No modify, no send, no trash, no delete.
+    # Gmail: READ + COMPOSE-DRAFT.
+    # NOTE: gmail.compose technically includes send capability per Google's docs.
+    # Hermes blocks send (and trash/delete/batchModify) at the HTTP-transport
+    # layer in gmail.py — even with the scope, those calls cannot leave the
+    # daemon. See _GmailSafeHttp.
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.compose",
     # Calendar: READ ONLY. No create, no modify, no delete.
     "https://www.googleapis.com/auth/calendar.readonly",
+    # Docs: READ + WRITE. Used for research briefs, account plans, recaps.
+    "https://www.googleapis.com/auth/documents",
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
 ]
