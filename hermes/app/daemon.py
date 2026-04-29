@@ -20,6 +20,7 @@ import zoneinfo
 from . import classify, notify, state
 from .config import Importance, env, env_int
 from .google import gmail
+from .linkedin import scanner as linkedin_scanner
 from .slack import dms, events
 
 log = logging.getLogger("hermes.daemon")
@@ -85,6 +86,37 @@ def briefing_tick() -> None:
     state.kv_set("last_briefing_date", today_str)
 
 
+def linkedin_tick() -> None:
+    """Twice daily (default 8am + 4pm her time), kick the LinkedIn scanner.
+
+    Times configurable via importance.yaml budget.linkedin_scan_times.
+    """
+    importance = Importance.load()
+    times = importance.budget.get("linkedin_scan_times", ["08:00", "16:00"])
+    now = _now_in_tz()
+    today_str = now.date().isoformat()
+    last_run_date = state.kv_get("linkedin_last_run_date", "")
+    last_run_slot = state.kv_get("linkedin_last_run_slot", "")
+
+    # Find the most recent slot that has elapsed today.
+    elapsed_today = [t for t in times if (now.hour, now.minute) >= tuple(int(x) for x in t.split(":"))]
+    if not elapsed_today:
+        return
+    current_slot = elapsed_today[-1]
+
+    if last_run_date == today_str and last_run_slot == current_slot:
+        return  # already ran this slot
+
+    log.info("linkedin scan tick: slot=%s", current_slot)
+    try:
+        counts = linkedin_scanner.run_once()
+        log.info("linkedin scan complete: %s", counts)
+    except Exception:
+        log.exception("linkedin scan failed")
+    state.kv_set("linkedin_last_run_date", today_str)
+    state.kv_set("linkedin_last_run_slot", current_slot)
+
+
 def heartbeat_tick() -> None:
     """Once an hour, log a debug line. Surfaces silent failures via launchd logs."""
     log.info("hermes daemon heartbeat — seen-table healthy")
@@ -114,6 +146,7 @@ def run() -> None:
             slack_dm_tick()
             last_dm = now
         briefing_tick()
+        linkedin_tick()
         if now - last_heartbeat >= 3600:
             heartbeat_tick()
             last_heartbeat = now

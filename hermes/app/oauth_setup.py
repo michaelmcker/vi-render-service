@@ -1,11 +1,12 @@
 """One-time OAuth + connectivity setup.
 
 Usage:
-    python -m app.oauth_setup google           # run Google OAuth flow
-    python -m app.oauth_setup test-telegram    # send a test message
-    python -m app.oauth_setup test-slack       # check Slack tokens
-    python -m app.oauth_setup test-claude      # confirm `claude -p` works
-    python -m app.oauth_setup all              # do everything in sequence
+    python -m app.oauth_setup google             # run Google OAuth flow
+    python -m app.oauth_setup linkedin-cookies   # save secondary LinkedIn cookies
+    python -m app.oauth_setup test-telegram      # send a test message
+    python -m app.oauth_setup test-slack         # check Slack tokens
+    python -m app.oauth_setup test-claude        # confirm `claude -p` works
+    python -m app.oauth_setup all                # do everything in sequence
 """
 from __future__ import annotations
 
@@ -53,8 +54,14 @@ def _claude() -> None:
     print(f"`claude -p` returned ({len(out)} chars). ✅")
 
 
+def _linkedin_cookies() -> None:
+    from .linkedin.playwright_scanner import save_cookies_interactive
+    save_cookies_interactive()
+
+
 COMMANDS = {
     "google": _google,
+    "linkedin-cookies": _linkedin_cookies,
     "test-telegram": _telegram,
     "test-slack": _slack,
     "test-claude": _claude,

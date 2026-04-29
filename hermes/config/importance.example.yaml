@@ -77,8 +77,35 @@ voice:
       should be on that thread?
       — Nikki
 
+linkedin:
+  # Core people whose posts she wants to engage on. Hermes scrapes their
+  # /recent-activity/ pages via Playwright (using a SECONDARY LinkedIn
+  # account, never her real one). Engagement opp suggestions get pushed
+  # to Telegram with a link + suggested comment. She executes manually
+  # on her phone with her real account.
+  #
+  # Add via Telegram: /lwatch <linkedin_url> <name> [reason]
+  watched_people:
+    # - linkedin_url: https://www.linkedin.com/in/john-smith-123
+    #   name: John Smith
+    #   reason: Acme CMO, key champion
+
+  # Topics that warrant comment suggestions from anyone.
+  topic_interests:
+    # - "B2B sales"
+    # - "ICP design"
+    # - "RevOps"
+
+  # Engagement thresholds for routing.
+  min_likes_for_engagement: 5
+  thought_leadership_min_likes: 100
+  thought_leadership_min_comments: 20
+
 # Notification noise budget.
 budget:
   max_alerts_per_hour: 8
   morning_briefing_at: "07:00"
   quiet_hours: "21:00-07:00"
+  linkedin_scan_times: ["08:00", "16:00"]
+  thought_leadership_weekly_at: "Sunday 09:00"
+  backup_times: ["07:00", "19:00"]
