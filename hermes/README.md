@@ -23,12 +23,12 @@ Desktop is the fallback if she ever needs to redo OAuth from the road.
 | Gmail draft replies (button-triggered) | Working |
 | Calendar read (briefing context) | Working |
 | Docs read + write (research briefs, recaps) | Working |
+| Sheets read + write (cross-source spreadsheet fill) | Working |
 | Drive: read existing files, write Hermes-owned files | Scoped (surface in `app/google/drive.py` as needed) |
 | Slack mentions/DMs/monitored channels → Telegram alerts | Working |
 | Slack reply drafts posted as her | Working |
 | Morning briefing | Working |
 | Telegram commands: `/health`, `/today`, `/vip`, `/watch`, `/quiet` | Working |
-| Sheets | Stub (extra OAuth required when wired up) |
 | Apollo direct API | Stub |
 | Salesforce via Zapier | Stub |
 | Granola transcripts | Stub |
@@ -81,13 +81,24 @@ cp config/importance.example.yaml config/importance.yaml
 
 1. **Cloud Console** (`console.cloud.google.com`):
    - New project: `hermes-nikki`.
-   - APIs & Services → Library → enable: Gmail API, Google Calendar API,
-     Google Docs API, Google Drive API.
+   - APIs & Services → Library → enable: **Gmail API, Google Calendar API,
+     Google Docs API, Google Drive API, Google Sheets API**.
    - APIs & Services → OAuth consent screen → User Type **Internal** → fill app
      name + support email. (Internal requires VI to be on Google Workspace.)
-   - Add the scopes listed in `app/google/auth.py`: gmail.readonly,
-     gmail.compose, calendar.readonly, documents, drive.readonly, drive.file,
-     openid, userinfo.email.
+   - Add these scopes (verified against developers.google.com):
+
+     | API | Scope | Purpose |
+     |---|---|---|
+     | Gmail | `https://www.googleapis.com/auth/gmail.readonly` | Read mail |
+     | Gmail | `https://www.googleapis.com/auth/gmail.compose` | Create drafts (send blocked at HTTP layer) |
+     | Calendar | `https://www.googleapis.com/auth/calendar.events.readonly` | Read events for briefing |
+     | Docs | `https://www.googleapis.com/auth/documents` | Read + write Docs |
+     | Sheets | `https://www.googleapis.com/auth/spreadsheets` | Read + write Sheets |
+     | Drive | `https://www.googleapis.com/auth/drive.readonly` | Read all files for context |
+     | Drive | `https://www.googleapis.com/auth/drive.file` | Modify only Hermes-created files (Drive API) |
+     | (identity) | `openid` | Sign-in |
+     | (identity) | `https://www.googleapis.com/auth/userinfo.email` | Identify the signed-in user |
+
    - Credentials → Create → OAuth client ID → **Desktop app** → Download JSON.
    - Move the JSON to `~/hermes/secrets/google_client.json`.
 2. Run the OAuth flow on the Mac:
@@ -100,19 +111,22 @@ cp config/importance.example.yaml config/importance.yaml
 **Why these scopes** —
 - `gmail.readonly + gmail.compose` covers read and draft creation. Google's
   `gmail.compose` scope inherently includes send capability ("Manage drafts and
-  send messages" per Google's docs); there is no narrower scope. Hermes
-  enforces "never send" at the HTTP-transport layer in `app/google/gmail.py`
-  via `_GmailSafeHttp`, which refuses any URL containing `/messages/send`,
+  send emails" per Google's docs); there is no narrower scope. Hermes enforces
+  "never send" at the HTTP-transport layer in `app/google/gmail.py` via
+  `_GmailSafeHttp`, which refuses any URL containing `/messages/send`,
   `/drafts/send`, `/trash`, `/untrash`, `/batchDelete`, `/batchModify`, plus
   any DELETE method against `/messages/` or `/threads/`. This is in addition
   to the code-surface guarantee that no `send()` function exists.
-- `calendar.readonly` — read-only.
-- `documents` — full read+write for Docs Hermes creates (research briefs,
-  recaps).
+- `calendar.events.readonly` — narrowest read-only Calendar scope: events on
+  any calendar, no calendar-list metadata, no write of any kind.
+- `documents` — full read+write Docs (the Docs API uses content scopes, not
+  Drive file scopes — Hermes can mutate any Doc Nikki has access to).
+- `spreadsheets` — full read+write Sheets, same content-scope behavior.
 - `drive.readonly + drive.file` — Hermes can read any file she has access to
-  for research/context, but can only modify or delete files it created itself.
-  Her existing Docs, Sheets, and files cannot be edited or deleted by Hermes.
-- Sheets is intentionally NOT requested in v1.
+  for research/context. Drive-API-level file management (delete, move, share)
+  is constrained to files Hermes itself created. NOTE: Doc/Sheet content
+  mutations go through the Docs/Sheets APIs above and are NOT constrained by
+  drive.file — that's how Google designed the API stack.
 
 ### 5. Slack
 

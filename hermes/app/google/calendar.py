@@ -1,7 +1,8 @@
 """Calendar — READ ONLY. Used for morning-briefing context ("you have 4 meetings
 today, the 2pm with Acme is the one to prep").
 
-Scope: calendar.readonly. Hermes cannot create, edit, or delete events.
+Scope: calendar.events.readonly (narrower than calendar.readonly — events only,
+no calendar-list metadata). Hermes cannot create, edit, or delete events.
 
 Surface (v1):
     today_events() -> list[Event]

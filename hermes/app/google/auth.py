@@ -29,26 +29,40 @@ CLIENT_SECRETS = SECRETS_DIR / "google_client.json"
 TOKEN_PATH = SECRETS_DIR / "google_token.json"
 
 # Order matters for Google's consent screen display.
-# To extend (Sheets, etc.), append the scope and re-run `oauth_setup google`.
+# Scope strings verified against Google's current docs (developers.google.com).
 SCOPES = [
     # Gmail: READ + COMPOSE-DRAFT.
-    # NOTE: gmail.compose technically includes send capability per Google's docs.
-    # Hermes blocks send (and trash/delete/batchModify) at the HTTP-transport
-    # layer in gmail.py — even with the scope, those calls cannot leave the
-    # daemon. See _GmailSafeHttp.
+    # NOTE: gmail.compose includes send capability per Google's docs ("Manage
+    # drafts and send emails"). There is no narrower scope for drafts-without-
+    # send. Hermes blocks send/trash/delete/batchModify at the HTTP-transport
+    # layer in gmail.py via _GmailSafeHttp — those calls cannot leave the daemon.
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.compose",
-    # Calendar: READ ONLY. No create, no modify, no delete.
-    "https://www.googleapis.com/auth/calendar.readonly",
-    # Docs: READ + WRITE. Used for research briefs, account plans, recaps.
+
+    # Calendar: events READ ONLY. Narrower than calendar.readonly (which also
+    # exposes calendar list metadata). We only need events for the briefing.
+    "https://www.googleapis.com/auth/calendar.events.readonly",
+
+    # Docs: full read+write. Used for research briefs, account plans, recaps.
+    # The documents scope is content-API-scoped: Hermes can mutate any Doc
+    # she has access to, not just Hermes-created ones. (drive.file does NOT
+    # constrain Docs API mutations.)
     "https://www.googleapis.com/auth/documents",
+
+    # Sheets: full read+write. Required for the "fill out this spreadsheet I
+    # made" workflow — same content-API-scope behavior as documents.
+    "https://www.googleapis.com/auth/spreadsheets",
+
     # Drive:
-    #   drive.readonly  — read existing files for research context
-    #   drive.file      — write/modify ONLY files Hermes itself creates
-    # Combined: Hermes can read everything she has, can only modify/delete
-    # files it created. Her existing Docs, Sheets, etc. are untouchable.
+    #   drive.readonly  — read existing files (research context, decks, etc.)
+    #   drive.file      — modify/delete via Drive API only files Hermes created
+    #                     (or files explicitly shared with the app via Picker)
+    # Combined: Drive-level file management is constrained to Hermes-owned
+    # files; Doc/Sheet content access is governed by the documents/spreadsheets
+    # scopes above.
     "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/drive.file",
+
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
 ]
