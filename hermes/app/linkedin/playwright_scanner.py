@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import time
 from contextlib import contextmanager
@@ -89,9 +90,36 @@ def save_cookies_interactive() -> None:
         browser.close()
 
 
+def _proxy_config() -> dict[str, str] | None:
+    """Read residential-proxy config from .env. Required when running on a
+    droplet — datacenter IPs get flagged by LinkedIn quickly. Skipping the
+    proxy from a residential ISP (Mac at home) is fine.
+
+    .env keys:
+      LINKEDIN_PROXY_SERVER     e.g. http://brd.superproxy.io:22225
+      LINKEDIN_PROXY_USERNAME   provider-specific
+      LINKEDIN_PROXY_PASSWORD   provider-specific
+    """
+    server = os.environ.get("LINKEDIN_PROXY_SERVER", "").strip()
+    if not server:
+        return None
+    cfg = {"server": server}
+    user = os.environ.get("LINKEDIN_PROXY_USERNAME", "").strip()
+    pw = os.environ.get("LINKEDIN_PROXY_PASSWORD", "").strip()
+    if user:
+        cfg["username"] = user
+    if pw:
+        cfg["password"] = pw
+    return cfg
+
+
 @contextmanager
 def _browser() -> Iterator[Any]:
-    """Headless Chromium with saved cookies. Imports playwright lazily."""
+    """Headless Chromium with saved cookies + optional residential proxy.
+
+    Imports playwright lazily so the module is importable without the
+    binary present (e.g. during `compileall` checks).
+    """
     from playwright.sync_api import sync_playwright
 
     if not COOKIES_PATH.exists():
@@ -100,10 +128,21 @@ def _browser() -> Iterator[Any]:
             "`python -m app.oauth_setup linkedin-cookies` to seed them."
         )
     cookies = json.loads(COOKIES_PATH.read_text())
+    proxy = _proxy_config()
+    if proxy:
+        log.info("using residential proxy: %s", proxy["server"])
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"])
-        ctx = browser.new_context(user_agent=USER_AGENT, viewport={"width": 1280, "height": 1600})
+        launch_kwargs = {
+            "headless": True,
+            "args": ["--disable-blink-features=AutomationControlled"],
+        }
+        if proxy:
+            launch_kwargs["proxy"] = proxy
+        browser = p.chromium.launch(**launch_kwargs)
+        ctx = browser.new_context(
+            user_agent=USER_AGENT, viewport={"width": 1280, "height": 1600},
+        )
         ctx.add_cookies(cookies)
         try:
             yield ctx
