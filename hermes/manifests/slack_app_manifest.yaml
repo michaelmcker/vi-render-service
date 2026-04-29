@@ -1,0 +1,60 @@
+# Paste this manifest into Slack: api.slack.com/apps -> Create New App ->
+# From manifest -> select VI workspace -> paste -> Create.
+#
+# Then under Settings -> Basic Information:
+#   - Generate an App-Level Token with scope `connections:write`
+#     (needed for Socket Mode). Save as SLACK_APP_TOKEN.
+#   - Copy the Signing Secret. Save as SLACK_SIGNING_SECRET.
+#
+# Then Install to Workspace, accept the consent screen, and copy:
+#   - Bot User OAuth Token (xoxb-)  -> SLACK_BOT_TOKEN
+#   - User OAuth Token (xoxp-)      -> SLACK_USER_TOKEN
+#
+# Finally, in any channel Nikki wants Hermes to monitor, type
+# `/invite @Hermes` so the bot can see channel events.
+
+display_information:
+  name: Hermes
+  description: Personal assistant for the head of sales at Vertical Impression.
+  background_color: "#1f2937"
+
+features:
+  bot_user:
+    display_name: Hermes
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+      - users:read
+      - users:read.email
+      - reactions:read
+    user:
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+      - im:history
+      - im:read
+      - mpim:history
+      - mpim:read
+      - chat:write
+      - reactions:write
+      - users:read
+      - users:read.email
+
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

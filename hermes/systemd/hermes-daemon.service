@@ -1,0 +1,31 @@
+[Unit]
+Description=Hermes — watcher daemon (Gmail, Slack, LinkedIn, briefing, backups, thought-leadership)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+WorkingDirectory=/opt/hermes
+EnvironmentFile=/opt/hermes/.env
+ExecStart=/opt/hermes/.venv/bin/python -m app.daemon
+Restart=on-failure
+RestartSec=15
+StandardOutput=append:/opt/hermes/logs/daemon.out.log
+StandardError=append:/opt/hermes/logs/daemon.err.log
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/hermes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=multi-user.target

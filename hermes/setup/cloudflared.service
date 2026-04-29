@@ -1,0 +1,25 @@
+[Unit]
+Description=cloudflared — Cloudflare Tunnel for Hermes web UI
+After=network-online.target hermes-web.service
+Wants=network-online.target hermes-web.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared --config /etc/cloudflared/config.yml tunnel run
+Restart=on-failure
+RestartSec=5
+User=cloudflared
+Group=cloudflared
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/etc/cloudflared
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=multi-user.target

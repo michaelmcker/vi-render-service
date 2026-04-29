@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.vi.hermes.daemon</string>
+
+    <!-- The watcher: Gmail poll, Slack listener, briefing scheduler. -->
+    <key>WorkingDirectory</key>
+    <string>/Users/nikki/hermes</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/nikki/hermes/.venv/bin/python</string>
+        <string>-m</string>
+        <string>app.daemon</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+        <key>HERMES_HOME</key>
+        <string>/Users/nikki/hermes</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/nikki/hermes/logs/daemon.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/nikki/hermes/logs/daemon.err.log</string>
+</dict>
+</plist>

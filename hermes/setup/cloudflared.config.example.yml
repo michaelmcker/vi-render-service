@@ -1,0 +1,29 @@
+# cloudflared tunnel config for the Hermes droplet.
+#
+# Place this at /etc/cloudflared/config.yml after `cloudflared tunnel create
+# hermes` (Cloudflare assigns the tunnel ID — replace below).
+#
+# How traffic flows:
+#   user → https://hermes.<your-cf-zone> (Cloudflare edge)
+#        → Cloudflare Access policy enforces email allowlist
+#        → cloudflared tunnel (outbound from droplet, no inbound port)
+#        → 127.0.0.1:8080 (hermes-web.service)
+#
+# The tunnel is OUTBOUND ONLY. The droplet has no public listener on 80/443.
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: /etc/cloudflared/REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  # The Hermes web UI. The /healthz endpoint is exempt from Access in
+  # the Cloudflare dashboard so cloudflared's own health probe works.
+  - hostname: hermes.REPLACE_WITH_YOUR_CF_ZONE
+    service: http://127.0.0.1:8080
+    originRequest:
+      # Pass through the CF-Access auth headers Hermes verifies.
+      noTLSVerify: false
+      connectTimeout: 10s
+      keepAliveConnections: 4
+
+  # Required catch-all: refuse anything that doesn't match.
+  - service: http_status:404

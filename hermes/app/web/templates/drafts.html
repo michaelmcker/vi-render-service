@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Drafts{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-1">Pending drafts</h1>
+<p class="text-slate-400 text-sm mb-6">
+  Use this page if Telegram is unreachable. Approving an email draft saves it
+  to her Gmail Drafts folder; she still has to open Gmail and send it manually.
+  Approving a Slack draft posts it as her immediately.
+</p>
+
+{% if not drafts %}
+  <div class="rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-8 text-center text-slate-400">
+    No pending drafts.
+  </div>
+{% endif %}
+
+<div class="space-y-4">
+  {% for d in drafts %}
+  <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+    <div class="flex items-center justify-between text-sm text-slate-400 mb-2">
+      <span class="uppercase tracking-wide">{{ d.source }}</span>
+      <span>{{ '%.0f'|format(d.age_min) }} min ago</span>
+    </div>
+    <pre class="text-sm text-slate-100 mb-4 leading-relaxed">{{ d.body }}</pre>
+
+    <div class="flex gap-2">
+      <form method="post" action="/drafts/{{ d.id }}/approve">
+        <button class="bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded text-sm font-medium">
+          ✅ Approve
+        </button>
+      </form>
+      <form method="post" action="/drafts/{{ d.id }}/discard">
+        <button class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-sm font-medium">
+          🗑 Discard
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Status{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-1">Status</h1>
+<p class="text-slate-400 text-sm mb-6">Live snapshot of every connection Hermes depends on.</p>
+
+<div class="space-y-2">
+  {% for r in rows %}
+  <div class="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-3">
+    <div class="flex items-center gap-3">
+      {% if r.status == "ok" %}
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+      {% elif r.status == "warn" %}
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+      {% else %}
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+      {% endif %}
+      <span class="font-medium">{{ r.name }}</span>
+    </div>
+    <span class="text-sm text-slate-400 truncate max-w-[55%] text-right">{{ r.detail }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="mt-8 grid grid-cols-2 gap-3">
+  <a href="/drafts" class="rounded-lg border border-slate-800 bg-slate-900/30 hover:bg-slate-800 px-4 py-3 text-center">
+    <div class="text-sm text-slate-400">Open</div>
+    <div class="font-medium">Pending drafts</div>
+  </a>
+  <a href="/linkedin" class="rounded-lg border border-slate-800 bg-slate-900/30 hover:bg-slate-800 px-4 py-3 text-center">
+    <div class="text-sm text-slate-400">Manage</div>
+    <div class="font-medium">LinkedIn</div>
+  </a>
+  <a href="/connect/google" class="rounded-lg border border-slate-800 bg-slate-900/30 hover:bg-slate-800 px-4 py-3 text-center">
+    <div class="text-sm text-slate-400">Reconnect</div>
+    <div class="font-medium">Google</div>
+  </a>
+  <a href="/logs" class="rounded-lg border border-slate-800 bg-slate-900/30 hover:bg-slate-800 px-4 py-3 text-center">
+    <div class="text-sm text-slate-400">Tail</div>
+    <div class="font-medium">Logs</div>
+  </a>
+</div>
+
+{% endblock %}

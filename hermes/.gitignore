@@ -1,0 +1,25 @@
+secrets/*
+!secrets/.gitkeep
+.env
+state.sqlite
+state.sqlite-journal
+__pycache__/
+*.pyc
+.venv/
+.python-version
+logs/
+
+# Profiles accumulate private context (real names, real reply text, real recipes).
+# Never commit. Examples in profiles/*.example.md and brand/*.example.md are committed.
+profiles/people/*
+profiles/accounts/*
+profiles/spreadsheets/*
+profiles/voice/*
+brand/*
+!profiles/people/.gitkeep
+!profiles/accounts/.gitkeep
+!profiles/spreadsheets/.gitkeep
+!profiles/voice/.gitkeep
+!profiles/voice/*.example.md
+!brand/.gitkeep
+!brand/*.example.md
