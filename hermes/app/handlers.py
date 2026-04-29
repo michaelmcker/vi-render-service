@@ -147,6 +147,36 @@ async def cmd_watch(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"Watching {len(channels)} channels.")
 
 
+async def cmd_prep(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate a pre-call prep brief for an upcoming meeting."""
+    if not await _gate(update):
+        return
+    arg = " ".join((update.message.text or "").split()[1:])
+    await update.message.reply_text("📋 Building prep brief — check back in ~30s…")
+    from . import pre_call_prep
+    try:
+        result = pre_call_prep.run(arg)
+    except Exception as e:
+        log.exception("/prep failed")
+        await update.message.reply_text(f"⚠️ Prep failed: {e}")
+        return
+    if result.get("status") == "no_meeting":
+        await update.message.reply_text("No upcoming meeting found in the next 48h.")
+        return
+    if result.get("status") != "ok":
+        await update.message.reply_text(f"⚠️ Prep failed: {result.get('reason', 'unknown')}")
+        return
+    title = result.get("title", "Prep")
+    link = result.get("doc_link", "")
+    await update.message.reply_text(
+        f"✅ *{title}*\n\n{link}",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📄 Open Doc", url=link)],
+        ]) if link else None,
+    )
+
+
 async def cmd_posture(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _gate(update):
         return
