@@ -17,7 +17,7 @@ import logging
 import time
 import zoneinfo
 
-from . import classify, notify, state, thought_leadership
+from . import backup, classify, notify, state, thought_leadership
 from .config import Importance, env, env_int
 from .google import gmail
 from .linkedin import scanner as linkedin_scanner
@@ -153,6 +153,33 @@ def thought_leadership_tick() -> None:
         log.exception("thought-leadership weekly run failed")
 
 
+def backup_tick() -> None:
+    """Twice daily (default 7am + 7pm her time) per importance.yaml budget.backup_times."""
+    importance = Importance.load()
+    times = importance.budget.get("backup_times", ["07:00", "19:00"])
+    now = _now_in_tz()
+    today_str = now.date().isoformat()
+    last_date = state.kv_get("backup_last_run_date", "")
+    last_slot = state.kv_get("backup_last_run_slot", "")
+
+    elapsed_today = [t for t in times if (now.hour, now.minute) >= tuple(int(x) for x in t.split(":"))]
+    if not elapsed_today:
+        return
+    current_slot = elapsed_today[-1]
+    if last_date == today_str and last_slot == current_slot:
+        return
+
+    log.info("backup tick: slot=%s", current_slot)
+    try:
+        result = backup.run_with_failure_tracking()
+        log.info("backup result: %s", result)
+    except Exception:
+        log.exception("backup tick crashed")
+    # Mark slot used regardless of success — failure ping is sent inside.
+    state.kv_set("backup_last_run_date", today_str)
+    state.kv_set("backup_last_run_slot", current_slot)
+
+
 def heartbeat_tick() -> None:
     """Once an hour, log a debug line. Surfaces silent failures via launchd logs."""
     log.info("hermes daemon heartbeat — seen-table healthy")
@@ -184,6 +211,7 @@ def run() -> None:
         briefing_tick()
         linkedin_tick()
         thought_leadership_tick()
+        backup_tick()
         if now - last_heartbeat >= 3600:
             heartbeat_tick()
             last_heartbeat = now
