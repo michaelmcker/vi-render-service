@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}LinkedIn{% endblock %}
+{% block content %}
+
+<h1 class="text-2xl font-semibold mb-1">LinkedIn</h1>
+<p class="text-slate-400 text-sm mb-6">
+  Hermes uses a SECONDARY LinkedIn account for read-only scraping —
+  her real account is never automated against. Engagement is fully manual:
+  Hermes sends her a post URL + suggested comment via Telegram; she
+  comments live with her real fingers.
+</p>
+
+<div class="rounded-lg border border-slate-800 bg-slate-900/50 p-5 mb-4">
+  <h2 class="font-medium mb-3">Secondary cookie status</h2>
+  {% if cookie_age_h is none %}
+    <div class="text-rose-400 text-sm">Not yet seeded.</div>
+    <p class="text-slate-400 text-sm mt-2">
+      The operator runs <code>python -m app.oauth_setup linkedin-cookies</code>
+      on the droplet to seed cookies for the first time.
+    </p>
+  {% else %}
+    {% if cookie_age_h < 14 * 24 %}
+      <div class="text-emerald-400 text-sm">Healthy — age {{ '%.0f'|format(cookie_age_h) }}h.</div>
+    {% else %}
+      <div class="text-amber-400 text-sm">Aging — {{ '%.0f'|format(cookie_age_h) }}h. Refresh soon.</div>
+    {% endif %}
+  {% endif %}
+  <p class="text-slate-500 text-xs mt-2">
+    Last scan: {{ last_run_date or "never" }} {{ last_run_slot }}
+  </p>
+</div>
+
+<form method="post" action="/linkedin/refresh-request"
+      class="rounded-lg border border-slate-800 bg-slate-900/50 p-5 mb-4">
+  <h2 class="font-medium mb-2">Need a cookie refresh?</h2>
+  <p class="text-slate-400 text-sm mb-4">
+    Tap below to ping the operator. They'll SSH to the droplet and re-seed
+    via Playwright.
+  </p>
+  <button class="bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded text-sm font-medium">
+    Request refresh
+  </button>
+</form>
+
+<div class="rounded-lg border border-slate-800 bg-slate-900/50 p-5">
+  <h2 class="font-medium mb-3">Watched people ({{ watched|length }})</h2>
+  {% if watched %}
+    <ul class="space-y-2 text-sm">
+      {% for p in watched %}
+      <li class="flex items-start gap-2">
+        <span class="text-slate-500">•</span>
+        <div>
+          <div class="font-medium">{{ p.name or p.linkedin_url }}</div>
+          {% if p.reason %}<div class="text-slate-500 text-xs">{{ p.reason }}</div>{% endif %}
+          <a href="{{ p.linkedin_url }}" target="_blank" class="text-blue-400 text-xs hover:underline">{{ p.linkedin_url }}</a>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-slate-400 text-sm">
+      No one watched yet. Add via Telegram (<code>/lwatch &lt;url&gt; &lt;name&gt;</code>) —
+      coming in a later commit — or edit
+      <code>config/importance.yaml</code> directly.
+    </p>
+  {% endif %}
+</div>
+
+{% endblock %}
