@@ -22,6 +22,8 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("quiet", handlers.cmd_quiet))
     app.add_handler(CommandHandler("posture", handlers.cmd_posture))
     app.add_handler(CommandHandler("prep", handlers.cmd_prep))
+    app.add_handler(CommandHandler("fill", handlers.cmd_fill))
+    app.add_handler(CommandHandler("recipe", handlers.cmd_recipe))
     app.add_handler(CallbackQueryHandler(handlers.on_callback))
     return app
 

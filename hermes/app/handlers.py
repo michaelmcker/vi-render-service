@@ -147,6 +147,102 @@ async def cmd_watch(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"Watching {len(channels)} channels.")
 
 
+async def cmd_fill(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Run /fill-spreadsheet for a given sheet URL."""
+    if not await _gate(update):
+        return
+    args = (update.message.text or "").split(maxsplit=1)
+    if len(args) < 2:
+        await update.message.reply_text(
+            "usage: `/fill <sheet_url_or_id>`\n\n"
+            "If no recipe is saved for the sheet, Hermes will ask you to set one "
+            "with `/recipe <sheet> set <instructions>` first.",
+            parse_mode="Markdown",
+        )
+        return
+    from . import fill_spreadsheet
+    sheet_id = fill_spreadsheet.parse_sheet_id(args[1].strip())
+    if not sheet_id:
+        await update.message.reply_text("Couldn't parse a sheet id from that.")
+        return
+    await update.message.reply_text("📊 Running fill — this may take a minute or two…")
+    try:
+        result = fill_spreadsheet.run_for_sheet(sheet_id)
+    except Exception as e:
+        log.exception("/fill failed")
+        await update.message.reply_text(f"⚠️ Fill failed: {e}")
+        return
+    if result.get("status") == "needs_recipe":
+        await update.message.reply_text(
+            "🪄 *No recipe yet for this sheet.*\n\n"
+            "Send instructions in plain English describing how each column "
+            "should be filled, then re-run `/fill`.\n\n"
+            f"`/recipe {sheet_id} set col B = Apollo headcount; col C = "
+            "most recent funding round from web; ...`",
+            parse_mode="Markdown",
+        )
+        return
+    if result.get("status") != "ok":
+        await update.message.reply_text(f"⚠️ {result.get('message', 'unknown')}")
+        return
+    note_blob = "\n".join(f"  • {n}" for n in result.get("notes", [])[:10])
+    await update.message.reply_text(
+        f"✅ *{result['title']}*\n"
+        f"Rows written: {result['rows_written']}/{result['rows_processed']}\n"
+        + (f"\nNotes:\n{note_blob}" if note_blob else ""),
+        parse_mode="Markdown",
+    )
+
+
+async def cmd_recipe(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    """Inspect or set a spreadsheet recipe."""
+    if not await _gate(update):
+        return
+    text = update.message.text or ""
+    parts = text.split(maxsplit=2)
+    if len(parts) < 2:
+        await update.message.reply_text(
+            "usage:\n"
+            "  `/recipe <sheet>`           — show saved recipe\n"
+            "  `/recipe <sheet> set <text>` — replace recipe",
+            parse_mode="Markdown",
+        )
+        return
+    from . import fill_spreadsheet
+    sheet_id = fill_spreadsheet.parse_sheet_id(parts[1])
+    if not sheet_id:
+        await update.message.reply_text("Couldn't parse a sheet id from that.")
+        return
+
+    if len(parts) == 2:
+        recipe = profiles.get_recipe(sheet_id)
+        if not recipe:
+            await update.message.reply_text("No recipe saved for this sheet.")
+        else:
+            instr = recipe.get("instructions", "")[:3500]
+            await update.message.reply_text(
+                f"*Recipe for {recipe.get('title', sheet_id)}*\n\n```\n{instr}\n```",
+                parse_mode="Markdown",
+            )
+        return
+
+    # /recipe <sheet> set <text>
+    rest = parts[2]
+    if not rest.lower().startswith("set "):
+        await update.message.reply_text(
+            "second argument must be `set <text>`. Run with no arg to view the saved recipe.",
+            parse_mode="Markdown",
+        )
+        return
+    instructions = rest[4:].strip()
+    if not instructions:
+        await update.message.reply_text("Need recipe text after `set`.")
+        return
+    fill_spreadsheet.save_recipe(sheet_id, instructions)
+    await update.message.reply_text(f"✅ Recipe saved. Re-run `/fill {sheet_id}` to apply.",
+                                    parse_mode="Markdown")
+
+
 async def cmd_prep(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     """Generate a pre-call prep brief for an upcoming meeting."""
     if not await _gate(update):
