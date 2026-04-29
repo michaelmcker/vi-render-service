@@ -83,7 +83,8 @@ async def cmd_health(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         return
     rows = []
     for name, check in [("Gmail", _check_gmail), ("Slack", _check_slack),
-                        ("Claude CLI", _check_claude)]:
+                        ("Codex (primary)", _check_codex),
+                        ("Claude (tool)", _check_claude)]:
         ok, detail = check()
         rows.append(f"{'✅' if ok else '❌'} {name} — {detail}")
     await update.message.reply_text("\n".join(rows))
@@ -537,9 +538,19 @@ def _check_slack() -> tuple[bool, str]:
         return False, str(e)[:80]
 
 
+def _check_codex() -> tuple[bool, str]:
+    try:
+        llm.run(PROMPTS_DIR / "triage.md", "ping", expect_json=False,
+                timeout=30, backend="codex")
+        return True, "ok"
+    except Exception as e:
+        return False, str(e)[:80]
+
+
 def _check_claude() -> tuple[bool, str]:
     try:
-        out = llm.run(PROMPTS_DIR / "triage.md", "ping", expect_json=False, timeout=20)
+        llm.run(PROMPTS_DIR / "triage.md", "ping", expect_json=False,
+                timeout=20, backend="claude")
         return True, "ok"
     except Exception as e:
         return False, str(e)[:80]

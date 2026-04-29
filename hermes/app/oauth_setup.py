@@ -5,7 +5,8 @@ Usage:
     python -m app.oauth_setup linkedin-cookies   # save secondary LinkedIn cookies
     python -m app.oauth_setup test-telegram      # send a test message
     python -m app.oauth_setup test-slack         # check Slack tokens
-    python -m app.oauth_setup test-claude        # confirm `claude -p` works
+    python -m app.oauth_setup test-codex         # confirm `codex exec` works (primary brain)
+    python -m app.oauth_setup test-claude        # confirm `claude -p` works (tool)
     python -m app.oauth_setup all                # do everything in sequence
 """
 from __future__ import annotations
@@ -47,10 +48,17 @@ def _slack() -> None:
         print("✅ Slack tokens look right.")
 
 
+def _codex() -> None:
+    out = llm.run(PROMPTS_DIR / "triage.md",
+                  '{"from":"test@example.com","subject":"hi","body":"ignore me"}',
+                  expect_json=False, timeout=45, backend="codex")
+    print(f"`codex exec` returned ({len(out)} chars). ✅")
+
+
 def _claude() -> None:
     out = llm.run(PROMPTS_DIR / "triage.md",
                   '{"from":"test@example.com","subject":"hi","body":"ignore me"}',
-                  expect_json=False, timeout=30)
+                  expect_json=False, timeout=30, backend="claude")
     print(f"`claude -p` returned ({len(out)} chars). ✅")
 
 
@@ -64,6 +72,7 @@ COMMANDS = {
     "linkedin-cookies": _linkedin_cookies,
     "test-telegram": _telegram,
     "test-slack": _slack,
+    "test-codex": _codex,
     "test-claude": _claude,
 }
 
@@ -74,7 +83,7 @@ def main() -> None:
         sys.exit(2)
     cmd = sys.argv[1]
     if cmd == "all":
-        for name in ("test-claude", "test-telegram", "google", "test-slack"):
+        for name in ("test-codex", "test-claude", "test-telegram", "google", "test-slack"):
             print(f"\n=== {name} ===")
             try:
                 COMMANDS[name]()

@@ -22,6 +22,16 @@ ever drifts from this document, the document wins — fix the code.
    - Posting in Slack as her after she taps approve: ✅
 6. **Slack outbound posts require an explicit Telegram tap** to approve the
    draft. There is no auto-post path.
+7. **No-draft topics**: Hermes flags but refuses to draft replies for any
+   thread classified as `hr`, `personal` (configurable per
+   `importance.yaml::email.no_draft_categories`). She writes those manually.
+   Per-person `no_draft` flags also block drafting for specific recipients.
+8. **LinkedIn**: Hermes only reads via a SECONDARY LinkedIn account she
+   creates with a different email — her real account is never automated
+   against. Engagement is fully manual: Hermes pings her with a post URL +
+   suggested comment text in Telegram; she comments live with her real
+   fingers on her phone. Posting/scheduling goes via Buffer's official
+   LinkedIn API integration (no automation, no ToS exposure).
 
 ## Three layers of enforcement
 
@@ -89,6 +99,29 @@ Every Slack reply and every Gmail draft preview shows up in Telegram with
 `[✅ Approve] [🗑 Discard]` buttons. Drafts only land in Gmail Drafts (or
 Slack) after she taps approve. There is no zero-touch outbound path.
 
+## Brain layer: Codex primary, Claude as a tool
+
+The main agent operates on **Codex** (her ChatGPT subscription, invoked
+via `codex exec`). All Hermes LLM calls default to Codex. `claude -p` is
+one of the tools Codex can call when Claude is a better fit (typically:
+voice-grounded drafting, longer creative synthesis).
+
+Both backends are CLI subprocesses on the daemon Mac — no API keys, both
+covered by her existing subscriptions. If a contributor ever wants to
+switch a specific prompt to Claude permanently:
+
+```
+LLM_BACKEND_DRAFT_REPLY=claude
+```
+
+in `.env` pins `prompts/draft_reply.md` to Claude. No code change needed.
+
+Both backends pass through the same Hermes tooling (Google APIs gated by
+`GoogleSafeHttp`, Slack gated by Telegram approval, etc.). The brain swap
+does NOT change the safety guarantees in this document — those are
+enforced at the HTTP transport layer, the Slack post-as-her gate, and the
+no-draft category check, all of which are downstream of the LLM call.
+
 ## If you ever need to add a destructive operation
 
 Don't do it casually. Required steps:
@@ -118,14 +151,50 @@ These are intentionally NOT capabilities of Hermes:
 - Updating Salesforce records (those go through Zapier with explicit Zaps
   she configures)
 
+## Profile store (accumulated memory)
+
+Hermes builds memory over time in `state.sqlite` + `profiles/` markdown:
+
+- `state.sqlite` tables: `people`, `accounts`, `spreadsheet_recipes`,
+  `voice_samples`, `network`.
+- `profiles/people/<email-slug>.md` — per-person notes appended after
+  every interaction.
+- `profiles/accounts/<domain-slug>.md` — per-company history.
+- `profiles/spreadsheets/<sheet_id>.md` — verbatim recipes for `/fill`.
+- `profiles/voice/<context>.md` — voice samples and rules per context.
+- `brand/` — `icp.md`, `product.md`, `pricing.md`, `network.md` (semi-static
+  company knowledge; pricing is auto-injected into any draft prompt that
+  touches money).
+
+All of this is local-only. `profiles/` and `brand/` are gitignored.
+Approved drafts are captured as voice samples (raw text) so future drafts
+get sharper over time. She can view via Telegram or open the markdown
+files directly.
+
+## Backups
+
+Twice daily (default 7am + 7pm her time), Hermes uploads a timestamped zip
+of `state.sqlite + profiles/ + brand/ + config/importance.yaml + a 90-day
+calendar export` to a "Hermes Backups" folder in her Drive.
+
+Backups deliberately exclude credentials (`.env`, OAuth tokens, LinkedIn
+cookies). If the Mac dies, she re-runs OAuth flows on a new Mac and
+restores the latest backup zip — all accumulated memory comes back.
+
+Backups are never deleted by Hermes (no-delete policy applies). Storage
+cost is trivial (typically <50MB per zip). She can manually clean the
+folder once a year if she cares.
+
 ## Token storage
 
 Long-term credentials live in `~/hermes/secrets/` with mode 0600:
 
 - `google_client.json` — OAuth client credentials
 - `google_token.json` — refresh token for her Google account
+- `linkedin_secondary_cookies.json` — secondary-account session for
+  Playwright scanning (NOT her real LinkedIn)
 - `.env` (in `~/hermes/`) — Slack tokens, Telegram bot token, Apollo key,
-  Zapier secrets
+  Buffer token, Zapier secrets
 
 These are equivalent in power to her account passwords. The Mac must have:
 
@@ -136,14 +205,17 @@ These are equivalent in power to her account passwords. The Mac must have:
 
 ## Auditability
 
-Every notification, classification, and (future) confirmed destructive op
-is logged to `state.sqlite`:
+Every notification, classification, draft, and (future) confirmed destructive
+op is logged to `state.sqlite`:
 
-- `seen_messages` — every email/Slack message Hermes triaged, with the
-  priority and summary
+- `seen_messages` — every email/Slack message Hermes triaged, including
+  the full triage JSON (priority, category, signal_matches, etc.)
 - `pending_drafts` — every draft Hermes created and whether it was approved
 - `notify_log` — every Telegram alert sent
-- `kv` — operational state, including any pending confirmation tokens
+- `voice_samples` — captured drafts after she approved them
+- `people`, `accounts`, `spreadsheet_recipes` — profile state
+- `kv` — operational state (posture, last-run timestamps, confirmation tokens)
 
-The SQLite file is local to her Mac. Open it with any sqlite3 client to
-audit.
+Per the audit clause from the interview: she + sponsor/IT can review the
+SQLite + profiles markdown directly on her Mac with permission. Nothing
+exfils automatically — backups go only to her own Drive.
