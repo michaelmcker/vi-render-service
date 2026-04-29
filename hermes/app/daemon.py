@@ -17,7 +17,7 @@ import logging
 import time
 import zoneinfo
 
-from . import classify, notify, state
+from . import classify, notify, state, thought_leadership
 from .config import Importance, env, env_int
 from .google import gmail
 from .linkedin import scanner as linkedin_scanner
@@ -117,6 +117,42 @@ def linkedin_tick() -> None:
     state.kv_set("linkedin_last_run_slot", current_slot)
 
 
+def thought_leadership_tick() -> None:
+    """Once a week (default Sunday 09:00 her time), synthesize the archive."""
+    importance = Importance.load()
+    spec = importance.budget.get("thought_leadership_weekly_at", "Sunday 09:00")
+    try:
+        day_str, time_str = spec.split()
+        target_h, target_m = (int(x) for x in time_str.split(":"))
+    except ValueError:
+        log.warning("invalid thought_leadership_weekly_at: %r", spec)
+        return
+    days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    target_day = day_str.capitalize()
+    if target_day not in days:
+        log.warning("invalid weekday in thought_leadership_weekly_at: %r", day_str)
+        return
+    target_dow = days.index(target_day)
+
+    now = _now_in_tz()
+    if now.weekday() != target_dow:
+        return
+    if (now.hour, now.minute) < (target_h, target_m):
+        return
+
+    iso_year, iso_week, _ = now.date().isocalendar()
+    week_label = f"{iso_year}-W{iso_week:02d}"
+    if state.kv_get("tl_last_week", "") == week_label:
+        return  # already ran this week
+
+    log.info("thought-leadership weekly tick: %s", week_label)
+    try:
+        result = thought_leadership.run_weekly()
+        log.info("thought-leadership: %s", result)
+    except Exception:
+        log.exception("thought-leadership weekly run failed")
+
+
 def heartbeat_tick() -> None:
     """Once an hour, log a debug line. Surfaces silent failures via launchd logs."""
     log.info("hermes daemon heartbeat — seen-table healthy")
@@ -147,6 +183,7 @@ def run() -> None:
             last_dm = now
         briefing_tick()
         linkedin_tick()
+        thought_leadership_tick()
         if now - last_heartbeat >= 3600:
             heartbeat_tick()
             last_heartbeat = now
