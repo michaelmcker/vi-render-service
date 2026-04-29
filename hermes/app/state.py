@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS seen_messages (
     seen_at      INTEGER NOT NULL,
     priority     TEXT,                 -- triage result
     summary      TEXT,
+    triage_json  TEXT,                 -- full triage dict, json-encoded
     PRIMARY KEY (source, external_id)
 );
 
@@ -51,6 +52,20 @@ CREATE TABLE IF NOT EXISTS kv (
 );
 """
 
+# Idempotent column migrations. Add new ALTER TABLE lines below as the
+# schema evolves; SQLite raises if the column already exists, which we swallow.
+_MIGRATIONS = (
+    "ALTER TABLE seen_messages ADD COLUMN triage_json TEXT",
+)
+
+
+def _apply_migrations(c: sqlite3.Connection) -> None:
+    for stmt in _MIGRATIONS:
+        try:
+            c.execute(stmt)
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
 
 @contextmanager
 def conn() -> Iterator[sqlite3.Connection]:
@@ -58,19 +73,38 @@ def conn() -> Iterator[sqlite3.Connection]:
     c.row_factory = sqlite3.Row
     try:
         c.executescript(SCHEMA)
+        _apply_migrations(c)
         yield c
         c.commit()
     finally:
         c.close()
 
 
-def mark_seen(source: str, external_id: str, priority: str, summary: str) -> None:
+def mark_seen(source: str, external_id: str, priority: str, summary: str,
+              triage: dict[str, Any] | None = None) -> None:
     with conn() as c:
         c.execute(
-            "INSERT OR REPLACE INTO seen_messages(source, external_id, seen_at, priority, summary) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (source, external_id, int(time.time()), priority, summary),
+            "INSERT OR REPLACE INTO seen_messages"
+            "(source, external_id, seen_at, priority, summary, triage_json) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (source, external_id, int(time.time()), priority, summary,
+             json.dumps(triage) if triage else None),
         )
+
+
+def get_triage(source: str, external_id: str) -> dict[str, Any] | None:
+    """Returns the persisted triage dict for a previously-seen message, or None."""
+    with conn() as c:
+        row = c.execute(
+            "SELECT triage_json FROM seen_messages WHERE source=? AND external_id=?",
+            (source, external_id),
+        ).fetchone()
+    if not row or not row["triage_json"]:
+        return None
+    try:
+        return json.loads(row["triage_json"])
+    except json.JSONDecodeError:
+        return None
 
 
 def already_seen(source: str, external_id: str) -> bool:

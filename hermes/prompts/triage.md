@@ -19,7 +19,11 @@ DECIDE:
    - "mute" → archive-quality. Newsletters, OOO replies, calendar bookkeeping.
 2. category: short label, one of:
    "deal", "intro", "internal", "scheduling", "vendor", "newsletter",
-   "support", "personal", "other".
+   "support", "hr", "legal", "personal", "other".
+   - "hr" = personnel matters, comp, hiring/firing, performance, references
+   - "legal" = contracts, MSAs, NDAs, disputes, anything signed-by-counsel
+   - "personal" = anything not work — family, friends, health, finance
+   These three categories prevent Hermes from auto-drafting (per SAFETY.md).
 3. summary: ≤ 30 words. What this email is and what (if anything) it asks of her.
 4. needs_response: bool. True if a reply from Nikki is the natural next step.
 5. suggested_actions: array of zero or more strings from this set:

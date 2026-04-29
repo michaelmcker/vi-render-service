@@ -11,12 +11,41 @@ import yaml
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from . import llm, state
+from . import llm, notify, profiles, state
 from .config import IMPORTANCE_PATH, Importance, PROMPTS_DIR, env
 from .google import gmail
 from .slack import actions as slack_actions, auth as slack_auth
 
 log = logging.getLogger("hermes.handlers")
+
+import re as _re
+_HANDLERS_EMAIL_RE = _re.compile(r"[\w._%+-]+@[\w.-]+\.[A-Za-z]{2,}")
+
+
+def _extract_email(from_header: str) -> str:
+    m = _HANDLERS_EMAIL_RE.search(from_header or "")
+    return m.group(0).lower() if m else ""
+
+
+def _bump_approval_counter() -> None:
+    """Track approvals; auto-graduate posture from conservative -> pre_draft
+    once the configured threshold is crossed. Pings Nikki once at graduation.
+    """
+    importance = Importance.load()
+    threshold = int(importance.budget.get("adaptive_ramp_threshold", 50))
+    n = int(state.kv_get("draft_approvals_count", "0") or "0") + 1
+    state.kv_set("draft_approvals_count", str(n))
+    posture = state.kv_get("posture", "conservative")
+    if posture == "conservative" and n >= threshold:
+        state.kv_set("posture", "pre_draft")
+        notify.send_text(
+            "🎓 *Posture upgrade*\n\n"
+            f"You've approved {n} drafts. Hermes is graduating from "
+            "conservative (Draft on tap) to pre-drafting on every flagged "
+            "item — you'll just edit + approve.\n\n"
+            "Send `/posture conservative` to undo.",
+            urgent=True, kind="system",
+        )
 
 # ────────────────────────── auth gate ──────────────────────────
 
@@ -118,6 +147,27 @@ async def cmd_watch(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"Watching {len(channels)} channels.")
 
 
+async def cmd_posture(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _gate(update):
+        return
+    args = (update.message.text or "").split()[1:]
+    valid = ("conservative", "pre_draft")
+    if not args:
+        cur = state.kv_get("posture", "conservative")
+        n = state.kv_get("draft_approvals_count", "0")
+        await update.message.reply_text(
+            f"Posture: *{cur}* — {n} drafts approved\n\n"
+            "Set with `/posture conservative` or `/posture pre_draft`.",
+            parse_mode="Markdown",
+        )
+        return
+    if args[0] not in valid:
+        await update.message.reply_text(f"Posture must be one of: {', '.join(valid)}")
+        return
+    state.kv_set("posture", args[0])
+    await update.message.reply_text(f"Posture set to *{args[0]}*.", parse_mode="Markdown")
+
+
 async def cmd_quiet(update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _gate(update):
         return
@@ -176,6 +226,17 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 return
             gmail.create_draft(d["thread_id"], d["payload"]["in_reply_to"], d["body"])
             state.update_draft_status(int(parts[1]), "approved")
+            # Capture as a voice sample so future drafts get sharper.
+            try:
+                profiles.capture_voice_sample(
+                    context=d["payload"].get("voice_context") or "default",
+                    body=d["body"],
+                    recipient_email=d["payload"].get("recipient_email", ""),
+                    source="approved-draft",
+                )
+                _bump_approval_counter()
+            except Exception:
+                log.exception("voice capture failed (non-fatal)")
             await q.message.reply_text("✅ Draft saved to your Gmail Drafts. Open Gmail to review and send.")
         elif op == "approve_slack_draft":
             d = state.get_pending_draft(int(parts[1]))
@@ -185,6 +246,15 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             slack_actions.post_as_her(d["payload"]["channel"], d["body"],
                                       thread_ts=d["payload"].get("thread_ts"))
             state.update_draft_status(int(parts[1]), "approved")
+            try:
+                profiles.capture_voice_sample(
+                    context="internal",  # Slack defaults to internal voice
+                    body=d["body"],
+                    source="approved-draft",
+                )
+                _bump_approval_counter()
+            except Exception:
+                log.exception("voice capture failed (non-fatal)")
             await q.message.reply_text("✅ Posted in Slack.")
         elif op == "discard_draft":
             state.update_draft_status(int(parts[1]), "discarded")
@@ -200,15 +270,55 @@ async def _email_draft(q, message_id: str) -> None:
     msg = gmail.get_message(message_id)
     thread = gmail.get_thread(msg["thread_id"])
     importance = Importance.load()
+
+    # Recipient + no-draft check.
+    recipient_email = _extract_email(msg.get("from", ""))
+    no_draft_categories = importance.email.get("no_draft_categories",
+                                               ["hr", "personal"])
+    saved_triage = state.get_triage("gmail", message_id) or {}
+    saved_category = (saved_triage.get("category") or "").lower()
+    if saved_category in no_draft_categories:
+        await q.message.reply_text(
+            "🚫 *Hermes won't auto-draft this thread*\n\n"
+            f"Detected category: `{saved_category}`. These threads are off-limits "
+            "for auto-drafting per your safety policy. Reply manually so the "
+            "words come from you.",
+            parse_mode="Markdown",
+        )
+        return
+    person = profiles.get_person(recipient_email) if recipient_email else None
+    if person and person.no_draft:
+        await q.message.reply_text(
+            "🚫 *Hermes won't auto-draft for this recipient*\n\n"
+            f"`{recipient_email}` is flagged no-draft. Reply manually.",
+            parse_mode="Markdown",
+        )
+        return
+
+    # Pull profile context (recipient notes, account notes, voice samples,
+    # pricing if the thread mentions money).
+    voice_context = profiles.infer_voice_context(recipient_email) if recipient_email else "default"
+    body_lower = (msg.get("body") or "").lower()
+    touches_money = any(k in body_lower for k in
+                        ("price", "pricing", "discount", "quote", "contract",
+                         "renewal", "msa", "sow", "$"))
+    profile_blob = profiles.build_context(
+        recipient_email=recipient_email,
+        account_slug=profiles.domain_slug(profiles.domain_from_email(recipient_email)) if recipient_email else "",
+        voice_context=voice_context,
+        touches_money=touches_money,
+    )
+
     voice_yaml = yaml.safe_dump(importance.voice, sort_keys=False)
     thread_text = "\n\n---\n\n".join(
         f"From: {m['from']}\nTo: {m['to']}\nSubject: {m['subject']}\n\n{m.get('body','')[:2000]}"
         for m in thread["messages"]
     )
     payload = (
-        f"VOICE:\n{voice_yaml}\n\n"
-        f"THREAD (oldest first):\n{thread_text}\n\n"
-        f"INSTRUCTION:\n"
+        (f"CONTEXT:\n{profile_blob}\n\n" if profile_blob else "")
+        + f"VOICE:\n{voice_yaml}\n\n"
+        + f"THREAD (oldest first):\n{thread_text}\n\n"
+        + f"INSTRUCTION:\n"
     )
     body = llm.run(PROMPTS_DIR / "draft_reply.md", payload)
     if isinstance(body, dict):
@@ -219,7 +329,8 @@ async def _email_draft(q, message_id: str) -> None:
         return
     draft_id = state.save_pending_draft(
         "gmail", msg["thread_id"], body,
-        {"in_reply_to": msg["id"], "subject": msg["subject"]},
+        {"in_reply_to": msg["id"], "subject": msg["subject"],
+         "recipient_email": recipient_email, "voice_context": voice_context},
     )
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Save to Drafts", callback_data=f"approve_email_draft:{draft_id}"),

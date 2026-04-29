@@ -13,7 +13,7 @@ import logging
 import time
 from typing import Any, Callable
 
-from .. import state
+from .. import profiles, state
 from . import auth, triage
 
 log = logging.getLogger("hermes.slack.dms")
@@ -42,7 +42,20 @@ def poll_once(on_alert: Callable[[dict[str, Any]], None]) -> None:
                 continue
             event = {**msg, "channel": cid, "channel_type": "im"}
             result = triage.classify(event, classifier_enabled=True)
-            state.mark_seen("slack", ext_id, result["priority"], result.get("summary", ""))
+            state.mark_seen("slack", ext_id, result["priority"],
+                            result.get("summary", ""), triage=result)
+            # Track interaction for profile memory; Slack uses user IDs not
+            # emails, so we encode as 'slack:U123ABC' and resolve later.
+            sender = msg.get("user", "")
+            if sender:
+                try:
+                    profiles.note_interaction(
+                        email=f"slack:{sender}",
+                        summary=result.get("summary", "")[:160],
+                        voice_context="customer" if event.get("channel_type") == "im" else "internal",
+                    )
+                except Exception:
+                    pass
             if result["priority"] in ("urgent", "today"):
                 on_alert({**event, "_triage": result})
 

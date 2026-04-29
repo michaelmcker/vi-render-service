@@ -334,6 +334,33 @@ def save_recipe(spreadsheet_id: str, *, title: str, instructions: str,
 
 VOICE_CONTEXTS = ("customer", "internal", "intro", "board", "default")
 
+# Heuristics for picking a voice context from a recipient email.
+# Tunable via importance.yaml `voice.context_rules` later.
+INTERNAL_DOMAINS = ("verticalimpression.com",)
+
+
+def infer_voice_context(email: str) -> str:
+    """Heuristic mapping of recipient email -> voice context.
+
+    Order of precedence:
+      1. Person record's voice_context (manual override)
+      2. Internal domain match
+      3. is_vip + a 'board'/'investor' tag (future, not yet plumbed)
+      4. Known account in `accounts` table -> 'customer'
+      5. fallback: 'default'
+    """
+    if not email or "@" not in email:
+        return "default"
+    p = get_person(email)
+    if p and p.voice_context:
+        return p.voice_context
+    domain = domain_from_email(email)
+    if any(domain == d or domain.endswith("." + d) for d in INTERNAL_DOMAINS):
+        return "internal"
+    if get_account(domain_slug(domain)):
+        return "customer"
+    return "default"
+
 
 def capture_voice_sample(*, context: str, body: str, recipient_email: str = "",
                          source: str = "approved-draft") -> int:

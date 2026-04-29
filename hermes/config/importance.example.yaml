@@ -5,6 +5,13 @@
 # Direct YAML edits are also fine.
 
 email:
+  # Categories where Hermes flags but never auto-drafts. Hard policy — even
+  # if she taps Draft, the bot refuses and asks her to write manually.
+  # Categories come from prompts/triage.md classifier.
+  no_draft_categories:
+    - hr
+    - personal
+
   # Senders that always trigger an alert, no LLM second-guessing.
   vip_senders:
     - bookings@verticalimpression.com
@@ -101,7 +108,7 @@ linkedin:
   thought_leadership_min_likes: 100
   thought_leadership_min_comments: 20
 
-# Notification noise budget.
+# Notification noise budget + cadence.
 budget:
   max_alerts_per_hour: 8
   morning_briefing_at: "07:00"
@@ -109,3 +116,8 @@ budget:
   linkedin_scan_times: ["08:00", "16:00"]
   thought_leadership_weekly_at: "Sunday 09:00"
   backup_times: ["07:00", "19:00"]
+
+  # Adaptive ramp: after this many approved drafts, posture auto-graduates
+  # from "conservative" (Draft on tap) to "pre_draft" (every flagged item
+  # gets a draft attached). Override with /posture in Telegram.
+  adaptive_ramp_threshold: 50

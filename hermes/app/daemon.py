@@ -17,11 +17,28 @@ import logging
 import time
 import zoneinfo
 
-from . import backup, classify, notify, state, thought_leadership
+import re
+
+from . import backup, classify, notify, profiles, state, thought_leadership
 from .config import Importance, env, env_int
 from .google import gmail
 from .linkedin import scanner as linkedin_scanner
 from .slack import dms, events
+
+
+_EMAIL_RE = re.compile(r"[\w._%+-]+@[\w.-]+\.[A-Za-z]{2,}")
+
+
+def _extract_email(from_header: str) -> str:
+    m = _EMAIL_RE.search(from_header or "")
+    return m.group(0).lower() if m else ""
+
+
+def _extract_display_name(from_header: str) -> str:
+    """`Jane Doe <jane@acme.com>` -> 'Jane Doe'; bare email -> ''."""
+    if "<" in (from_header or ""):
+        return from_header.split("<", 1)[0].strip().strip('"')
+    return ""
 
 log = logging.getLogger("hermes.daemon")
 
@@ -47,7 +64,19 @@ def gmail_tick() -> None:
         except Exception:
             log.exception("triage error for %s", msg["id"])
             continue
-        state.mark_seen("gmail", msg["id"], triage["priority"], triage.get("summary", ""))
+        state.mark_seen("gmail", msg["id"], triage["priority"], triage.get("summary", ""), triage=triage)
+        # Bump person/account profiles based on the sender.
+        try:
+            sender_email = _extract_email(msg.get("from", ""))
+            if sender_email:
+                profiles.note_interaction(
+                    email=sender_email,
+                    display_name=_extract_display_name(msg.get("from", "")),
+                    summary=triage.get("summary", "")[:160],
+                    voice_context=profiles.infer_voice_context(sender_email),
+                )
+        except Exception:
+            log.exception("profiles.note_interaction failed for %s", msg.get("from"))
         if triage["priority"] in ("urgent", "today"):
             notify.alert_email(msg, triage)
 
