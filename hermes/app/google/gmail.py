@@ -6,10 +6,11 @@ Hard guarantees, in three layers of defense:
    get_thread, create_draft. No send, trash, delete, or label-modify
    functions exist.
 
-2. HTTP transport: every request is routed through _GmailSafeHttp, which
-   refuses any URL or method that would send, trash, delete, or batch-modify
-   mail. This catches future code paths and bugs — even if a contributor
-   added a send() call, the request would be refused before reaching Google.
+2. HTTP transport: every request is routed through GoogleSafeHttp (see
+   _safety.py), which refuses any URL or method that would send, trash,
+   delete, or batch-modify mail. This catches future code paths and bugs —
+   even if a contributor added a send() call, the request would be refused
+   before reaching Google.
 
 3. Tripwire: any attempt to call gmail.send raises a RuntimeError.
 
@@ -25,62 +26,15 @@ import logging
 from email.message import EmailMessage
 from typing import Any
 
-import httplib2
-from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 
-from .auth import get_credentials
+from ._safety import safe_authorized_http
 
 log = logging.getLogger("hermes.gmail")
 
 
-# ────────────────────── send / destructive-op blocker ──────────────────────
-
-# Substrings in the request URI that indicate a destructive Gmail operation.
-# Any GET/POST/DELETE matching any of these against /gmail/v1/ is refused.
-_FORBIDDEN_URI_FRAGMENTS = (
-    "/messages/send",   # users.messages.send
-    "/drafts/send",     # users.drafts.send (sends a saved draft)
-    "/trash",           # users.messages.trash, users.threads.trash
-    "/untrash",
-    "/batchDelete",
-    "/batchModify",     # can apply TRASH label
-)
-
-
-class _GmailSafeHttp(httplib2.Http):
-    """HTTP transport that refuses destructive Gmail operations.
-
-    Sits below googleapiclient. Every Gmail API call passes through here
-    before hitting the network. Any attempt to send, trash, untrash, delete,
-    or batch-modify mail raises RuntimeError. drafts.create and drafts.delete
-    on Hermes-authored drafts are still allowed.
-    """
-
-    def request(self, uri, method="GET", body=None, headers=None,
-                redirections=5, connection_type=None):
-        if "/gmail/v1/" in uri:
-            for frag in _FORBIDDEN_URI_FRAGMENTS:
-                if frag in uri:
-                    raise RuntimeError(
-                        f"Hermes blocked Gmail call: {method} {uri} "
-                        f"(matched {frag!r}). Send/trash/delete/batch-modify "
-                        "are permanently disabled."
-                    )
-            # Block permanent delete on real messages and threads.
-            # (DELETE on /drafts/{id} is fine — Hermes can clean up its own drafts.)
-            if method == "DELETE" and ("/messages/" in uri or "/threads/" in uri):
-                raise RuntimeError(
-                    f"Hermes blocked Gmail DELETE: {uri}. "
-                    "Permanent deletion of mail is disabled."
-                )
-        return super().request(uri, method, body, headers, redirections, connection_type)
-
-
 def _client():
-    creds = get_credentials()
-    safe_http = AuthorizedHttp(creds, http=_GmailSafeHttp())
-    return build("gmail", "v1", http=safe_http, cache_discovery=False)
+    return build("gmail", "v1", http=safe_authorized_http(), cache_discovery=False)
 
 
 def list_unread(after_unix: int | None = None, max_results: int = 50) -> list[dict[str, Any]]:

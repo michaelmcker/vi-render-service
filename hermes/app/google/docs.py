@@ -19,18 +19,18 @@ from typing import Any
 
 from googleapiclient.discovery import build
 
-from .auth import get_credentials
+from ._safety import safe_authorized_http
 
 log = logging.getLogger("hermes.docs")
 
 
 def _client():
-    return build("docs", "v1", credentials=get_credentials(), cache_discovery=False)
+    return build("docs", "v1", http=safe_authorized_http(), cache_discovery=False)
 
 
 def _drive_client():
     # Docs API can't set a parent folder at create time; Drive can.
-    return build("drive", "v3", credentials=get_credentials(), cache_discovery=False)
+    return build("drive", "v3", http=safe_authorized_http(), cache_discovery=False)
 
 
 def create(title: str, *, parent_folder_id: str | None = None) -> str:

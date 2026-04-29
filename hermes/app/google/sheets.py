@@ -21,13 +21,13 @@ from typing import Any
 
 from googleapiclient.discovery import build
 
-from .auth import get_credentials
+from ._safety import safe_authorized_http
 
 log = logging.getLogger("hermes.sheets")
 
 
 def _client():
-    return build("sheets", "v4", credentials=get_credentials(), cache_discovery=False)
+    return build("sheets", "v4", http=safe_authorized_http(), cache_discovery=False)
 
 
 def get_metadata(sheet_id: str) -> dict[str, Any]:

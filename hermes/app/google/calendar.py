@@ -18,11 +18,11 @@ from typing import Any
 
 from googleapiclient.discovery import build
 
-from .auth import get_credentials
+from ._safety import safe_authorized_http
 
 
 def _client():
-    return build("calendar", "v3", credentials=get_credentials(), cache_discovery=False)
+    return build("calendar", "v3", http=safe_authorized_http(), cache_discovery=False)
 
 
 def today_events() -> list[dict[str, Any]]:
