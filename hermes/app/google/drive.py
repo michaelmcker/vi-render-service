@@ -1,20 +1,15 @@
-"""Drive — STUB. NOT scoped in v1.
+"""Drive — scoped in v1 (drive.readonly + drive.file). Surface implemented as needed.
 
-To enable, add one of these to SCOPES in app/google/auth.py and re-run
-`python -m app.oauth_setup google`:
+Hermes can read everything Nikki has access to (drive.readonly) but can only
+modify/delete files it created itself (drive.file). Her pre-existing Docs,
+Sheets, and files are read-only from Hermes's perspective.
 
-    drive.readonly                     # read everything she has access to
-    drive.file                         # only files Hermes itself creates
-    drive.readonly + drive.file        # read all + write only Hermes-owned files (recommended)
-
-Recommendation when wiring up: drive.readonly + drive.file. Hermes can read
-her existing files for research/context, but can only modify or delete files
-it created itself. Her existing Docs, Sheets, etc. cannot be touched.
-
-Planned surface:
+Planned surface (implement as workflows need it):
     find(query: str) -> list[FileMeta]
     read_text(file_id: str) -> str          # exports Docs to text, fetches plain files
-    upload(local_path: Path, *, parent_id: str | None = None) -> FileMeta
     create_folder(name: str, *, parent_id: str | None = None) -> FileMeta
-    share(file_id: str, email: str, role: str = "reader") -> None
+    upload(local_path: Path, *, parent_id: str | None = None) -> FileMeta
+
+The Hermes outputs folder ("Hermes — Sales Notes") is created on first write
+and its id cached in state.kv as 'hermes_drive_folder_id'.
 """

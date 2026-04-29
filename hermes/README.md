@@ -23,11 +23,12 @@ Desktop is the fallback if she ever needs to redo OAuth from the road.
 | Gmail draft replies (button-triggered) | Working |
 | Calendar read (briefing context) | Working |
 | Docs read + write (research briefs, recaps) | Working |
+| Drive: read existing files, write Hermes-owned files | Scoped (surface in `app/google/drive.py` as needed) |
 | Slack mentions/DMs/monitored channels → Telegram alerts | Working |
 | Slack reply drafts posted as her | Working |
 | Morning briefing | Working |
 | Telegram commands: `/health`, `/today`, `/vip`, `/watch`, `/quiet` | Working |
-| Drive / Sheets | Stub (extra OAuth required when wired up) |
+| Sheets | Stub (extra OAuth required when wired up) |
 | Apollo direct API | Stub |
 | Salesforce via Zapier | Stub |
 | Granola transcripts | Stub |
@@ -81,11 +82,12 @@ cp config/importance.example.yaml config/importance.yaml
 1. **Cloud Console** (`console.cloud.google.com`):
    - New project: `hermes-nikki`.
    - APIs & Services → Library → enable: Gmail API, Google Calendar API,
-     Google Docs API.
+     Google Docs API, Google Drive API.
    - APIs & Services → OAuth consent screen → User Type **Internal** → fill app
      name + support email. (Internal requires VI to be on Google Workspace.)
-   - Add the scopes listed in `app/google/auth.py` (gmail.readonly,
-     gmail.compose, calendar.readonly, documents, openid, userinfo.email).
+   - Add the scopes listed in `app/google/auth.py`: gmail.readonly,
+     gmail.compose, calendar.readonly, documents, drive.readonly, drive.file,
+     openid, userinfo.email.
    - Credentials → Create → OAuth client ID → **Desktop app** → Download JSON.
    - Move the JSON to `~/hermes/secrets/google_client.json`.
 2. Run the OAuth flow on the Mac:
@@ -107,7 +109,10 @@ cp config/importance.example.yaml config/importance.yaml
 - `calendar.readonly` — read-only.
 - `documents` — full read+write for Docs Hermes creates (research briefs,
   recaps).
-- Drive and Sheets are intentionally NOT requested in v1.
+- `drive.readonly + drive.file` — Hermes can read any file she has access to
+  for research/context, but can only modify or delete files it created itself.
+  Her existing Docs, Sheets, and files cannot be edited or deleted by Hermes.
+- Sheets is intentionally NOT requested in v1.
 
 ### 5. Slack
 

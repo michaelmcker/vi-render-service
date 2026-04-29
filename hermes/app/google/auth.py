@@ -29,7 +29,7 @@ CLIENT_SECRETS = SECRETS_DIR / "google_client.json"
 TOKEN_PATH = SECRETS_DIR / "google_token.json"
 
 # Order matters for Google's consent screen display.
-# To extend (Drive/Sheets), append the scope and re-run `oauth_setup google`.
+# To extend (Sheets, etc.), append the scope and re-run `oauth_setup google`.
 SCOPES = [
     # Gmail: READ + COMPOSE-DRAFT.
     # NOTE: gmail.compose technically includes send capability per Google's docs.
@@ -42,6 +42,13 @@ SCOPES = [
     "https://www.googleapis.com/auth/calendar.readonly",
     # Docs: READ + WRITE. Used for research briefs, account plans, recaps.
     "https://www.googleapis.com/auth/documents",
+    # Drive:
+    #   drive.readonly  — read existing files for research context
+    #   drive.file      — write/modify ONLY files Hermes itself creates
+    # Combined: Hermes can read everything she has, can only modify/delete
+    # files it created. Her existing Docs, Sheets, etc. are untouchable.
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/drive.file",
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
 ]
