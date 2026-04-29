@@ -17,9 +17,10 @@ import logging
 import time
 import zoneinfo
 
+import os
 import re
 
-from . import backup, classify, notify, profiles, state, thought_leadership
+from . import backup, classify, granola, notify, profiles, state, thought_leadership
 from .config import Importance, env, env_int
 from .google import gmail
 from .linkedin import scanner as linkedin_scanner
@@ -209,6 +210,18 @@ def backup_tick() -> None:
     state.kv_set("backup_last_run_slot", current_slot)
 
 
+def granola_tick() -> None:
+    """Poll Granola for new transcripts, archive + ping Telegram for each."""
+    if not os.environ.get("GRANOLA_API_KEY"):
+        return  # not configured
+    try:
+        counts = granola.poll_once()
+        if counts["new"]:
+            log.info("granola: %s", counts)
+    except Exception:
+        log.exception("granola poll failed")
+
+
 def heartbeat_tick() -> None:
     """Once an hour, log a debug line. Surfaces silent failures via launchd logs."""
     log.info("hermes daemon heartbeat — seen-table healthy")
@@ -225,8 +238,10 @@ def run() -> None:
 
     gmail_interval = env_int("HERMES_GMAIL_POLL_SECONDS", 180)
     dm_interval = env_int("HERMES_DM_POLL_SECONDS", 60)
+    granola_interval = env_int("HERMES_GRANOLA_POLL_SECONDS", 300)
     last_gmail = 0.0
     last_dm = 0.0
+    last_granola = 0.0
     last_heartbeat = 0.0
 
     while True:
@@ -237,6 +252,9 @@ def run() -> None:
         if now - last_dm >= dm_interval:
             slack_dm_tick()
             last_dm = now
+        if now - last_granola >= granola_interval:
+            granola_tick()
+            last_granola = now
         briefing_tick()
         linkedin_tick()
         thought_leadership_tick()

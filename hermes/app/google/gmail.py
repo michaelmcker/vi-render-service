@@ -127,6 +127,24 @@ def _extract_body(payload: dict[str, Any]) -> str:
     return ""
 
 
+def create_fresh_draft(*, to: str, subject: str, body_text: str) -> dict[str, Any]:
+    """Create a NEW draft (no thread). Used for follow-ups from Granola.
+    Same safety guarantees: this returns a draft, never sends.
+    """
+    em = EmailMessage()
+    em.set_content(body_text)
+    em["To"] = to
+    em["Subject"] = subject
+    raw = base64.urlsafe_b64encode(em.as_bytes()).decode()
+    g = _client()
+    draft = g.users().drafts().create(
+        userId="me",
+        body={"message": {"raw": raw}},
+    ).execute()
+    log.info("created fresh draft %s to %s", draft.get("id"), to)
+    return draft
+
+
 # Explicit guard: any future contributor who tries to send mail trips this.
 def send(*_args: Any, **_kwargs: Any) -> None:  # noqa: D401 - intentionally a tripwire
     raise RuntimeError(

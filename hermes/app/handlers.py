@@ -394,6 +394,36 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             except Exception:
                 log.exception("voice capture failed (non-fatal)")
             await q.message.reply_text("✅ Posted in Slack.")
+        elif op == "approve_granola_draft":
+            d = state.get_pending_draft(int(parts[1]))
+            if not d:
+                await q.message.reply_text("Draft expired.")
+                return
+            from .google import gmail as gmail_lib
+            gmail_lib.create_fresh_draft(
+                to=d["payload"].get("to", ""),
+                subject=d["payload"].get("subject", ""),
+                body_text=d["body"],
+            )
+            state.update_draft_status(int(parts[1]), "approved")
+            try:
+                profiles.capture_voice_sample(
+                    context=d["payload"].get("voice_context", "customer"),
+                    body=d["body"],
+                    recipient_email=d["payload"].get("recipient_email", ""),
+                    source="approved-draft",
+                )
+                _bump_approval_counter()
+            except Exception:
+                log.exception("voice capture failed (non-fatal)")
+            await q.message.reply_text("✅ Follow-up saved to Gmail Drafts.")
+        elif op == "granola_followup":
+            await _granola_followup(q, parts[1])
+        elif op == "granola_winloss":
+            await q.message.reply_text(
+                "Win/loss recap is a v2 skill — for now, paste the transcript "
+                "into Claude Code with `/win-loss` from `~/hermes/cli/`."
+            )
         elif op == "discard_draft":
             state.update_draft_status(int(parts[1]), "discarded")
             await q.message.reply_text("Discarded.")
@@ -475,6 +505,78 @@ async def _email_draft(q, message_id: str) -> None:
         InlineKeyboardButton("🗑 Discard", callback_data=f"discard_draft:{draft_id}"),
     ]])
     await q.message.reply_text(f"_Draft preview_\n\n{body}", reply_markup=keyboard, parse_mode="Markdown")
+
+
+async def _granola_followup(q, note_id: str) -> None:
+    """Draft a follow-up email from a Granola transcript."""
+    from . import granola
+    note = granola.get_note(note_id)
+    if not note:
+        await q.message.reply_text("Couldn't fetch that Granola note.")
+        return
+    # Detect external attendees.
+    self_domain = state.kv_get("self_email_domain", "verticalimpression.com")
+    external = [e for e in note["attendees"]
+                if "@" in e and e.split("@")[-1] != self_domain]
+    if not external:
+        await q.message.reply_text("Internal-only meeting — no follow-up to draft.")
+        return
+
+    importance = Importance.load()
+    voice_yaml = yaml.safe_dump(importance.voice, sort_keys=False)
+    profile_blob = profiles.build_context(
+        recipient_email=external[0],
+        account_slug=profiles.domain_slug(external[0].split("@")[-1]),
+        voice_context=profiles.infer_voice_context(external[0]),
+        max_chars=2500,
+    )
+    transcript = note.get("transcript_full") or note.get("transcript_excerpt") or note.get("summary", "")
+    payload = (
+        (f"CONTEXT:\n{profile_blob}\n\n" if profile_blob else "")
+        + f"VOICE:\n{voice_yaml}\n\n"
+        + f"MEETING:\n  title: {note.get('title','')}\n"
+        + f"  attendees: {', '.join(note['attendees'])}\n"
+        + f"  external: {', '.join(external)}\n\n"
+        + f"TRANSCRIPT:\n{transcript[:8000]}\n"
+    )
+    try:
+        result = llm.run(PROMPTS_DIR / "follow_up.md", payload, expect_json=True)
+    except llm.LLMError as e:
+        await q.message.reply_text(f"⚠️ Draft generation failed: {e}")
+        return
+    if not isinstance(result, dict):
+        await q.message.reply_text("⚠️ Unexpected model output; try again.")
+        return
+    body_text = result.get("body", "").strip()
+    if body_text.startswith("{{HOLD}}"):
+        await q.message.reply_text(
+            f"⏸ Holding off: {body_text.removeprefix('{{HOLD}}:').strip()}"
+        )
+        return
+
+    # Stage as a pending draft. We don't have a Gmail message-id to reply to
+    # (this is fresh outreach), so we create a NEW draft (no thread) when
+    # approved. Stash all the bits we need.
+    draft_id = state.save_pending_draft(
+        "gmail_new", "",  # no thread_id for a fresh draft
+        body_text,
+        {"to": result.get("to", ""), "subject": result.get("subject", ""),
+         "voice_context": "customer", "recipient_email": external[0],
+         "granola_id": note_id},
+    )
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("✅ Save to Drafts",
+                             callback_data=f"approve_granola_draft:{draft_id}"),
+        InlineKeyboardButton("🗑 Discard",
+                             callback_data=f"discard_draft:{draft_id}"),
+    ]])
+    preview = (
+        f"_Follow-up draft_\n"
+        f"*To:* {result.get('to','')}\n"
+        f"*Subject:* {result.get('subject','')}\n\n"
+        f"{body_text}"
+    )
+    await q.message.reply_text(preview, reply_markup=keyboard, parse_mode="Markdown")
 
 
 async def _email_view(q, message_id: str) -> None:
