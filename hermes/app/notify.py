@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
 import zoneinfo
 from typing import Any
 
@@ -17,34 +18,80 @@ from .config import Importance, env
 log = logging.getLogger("hermes.notify")
 
 
+def _primary_chat_id() -> str:
+    """Nikki's chat. Falls back to legacy TELEGRAM_CHAT_ID for migration."""
+    val = os.environ.get("TELEGRAM_PRIMARY_CHAT_ID") or os.environ.get("TELEGRAM_CHAT_ID")
+    if not val:
+        raise RuntimeError(
+            "TELEGRAM_PRIMARY_CHAT_ID not set (or legacy TELEGRAM_CHAT_ID)"
+        )
+    return val
+
+
+def _authorized_chat_ids() -> list[str]:
+    """Allowlist for commands + system-ping broadcasts."""
+    raw = os.environ.get("TELEGRAM_AUTHORIZED_CHAT_IDS", "")
+    if raw:
+        return [x.strip() for x in raw.split(",") if x.strip()]
+    # Migration fallback — single primary chat is the only authorized one.
+    return [_primary_chat_id()]
+
+
 def send_text(text: str, *, kind: str = "system",
               keyboard: list[list[dict[str, str]]] | None = None,
-              urgent: bool = False) -> bool:
-    """Send a Telegram message. Returns True if sent, False if suppressed."""
+              urgent: bool = False, audience: str = "primary") -> bool:
+    """Send a Telegram message. Returns True if any send succeeded.
+
+    audience:
+        "primary"  — only Nikki's chat (briefings, drafts, alerts)
+        "all"      — both authorized chats (system errors, health pings)
+        "operator" — operator only (rare; explicit operator-side fetches)
+    """
     if not urgent and _suppressed(kind):
         log.info("suppressed %s message (quiet hours / budget)", kind)
         return False
 
-    payload: dict[str, Any] = {
-        "chat_id": env("TELEGRAM_CHAT_ID"),
-        "text": text,
-        "parse_mode": "Markdown",
-        "disable_web_page_preview": True,
-    }
-    if keyboard:
-        payload["reply_markup"] = {"inline_keyboard": keyboard}
-
+    targets = _resolve_audience(audience)
     token = env("TELEGRAM_BOT_TOKEN")
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    try:
-        r = httpx.post(url, json=payload, timeout=15)
-        r.raise_for_status()
-    except httpx.HTTPError:
-        log.exception("telegram send failed")
-        return False
+    sent_any = False
 
-    state.log_notify(kind)
-    return True
+    for chat_id in targets:
+        payload: dict[str, Any] = {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": True,
+        }
+        if keyboard:
+            payload["reply_markup"] = {"inline_keyboard": keyboard}
+        try:
+            r = httpx.post(url, json=payload, timeout=15)
+            r.raise_for_status()
+            sent_any = True
+        except httpx.HTTPError:
+            log.exception("telegram send failed for chat %s", chat_id)
+
+    if sent_any:
+        state.log_notify(kind)
+    return sent_any
+
+
+def _resolve_audience(audience: str) -> list[str]:
+    if audience == "primary":
+        return [_primary_chat_id()]
+    if audience == "all":
+        # Dedup while preserving order: primary first, then any operator-only.
+        primary = _primary_chat_id()
+        out = [primary]
+        for cid in _authorized_chat_ids():
+            if cid != primary and cid not in out:
+                out.append(cid)
+        return out
+    if audience == "operator":
+        primary = _primary_chat_id()
+        return [c for c in _authorized_chat_ids() if c != primary]
+    raise ValueError(f"unknown audience: {audience!r}")
 
 
 def alert_email(message: dict[str, Any], triage: dict[str, Any]) -> None:

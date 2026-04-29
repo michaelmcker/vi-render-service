@@ -1,0 +1,40 @@
+[Unit]
+Description=Hermes — web UI (status, OAuth, LinkedIn refresh) on 127.0.0.1:8080
+After=network-online.target
+Wants=network-online.target
+
+# Bound to localhost ONLY. Cloudflare Tunnel (cloudflared) forwards public
+# traffic from the Cloudflare edge to this socket. Cloudflare Access enforces
+# the "only Nikki + operator emails" allowlist BEFORE traffic ever reaches
+# the tunnel. There is no path for unauthenticated traffic to hit this service.
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+WorkingDirectory=/opt/hermes
+EnvironmentFile=/opt/hermes/.env
+ExecStart=/opt/hermes/.venv/bin/python -m app.web
+Restart=on-failure
+RestartSec=15
+StandardOutput=append:/opt/hermes/logs/web.out.log
+StandardError=append:/opt/hermes/logs/web.err.log
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/hermes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictRealtime=yes
+
+# Bind only to localhost. Confirms the security invariant.
+Environment=HERMES_WEB_BIND=127.0.0.1
+Environment=HERMES_WEB_PORT=8080
+
+[Install]
+WantedBy=multi-user.target

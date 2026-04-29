@@ -157,7 +157,8 @@ def run_with_failure_tracking() -> dict[str, str]:
 
     msg = f"⚠️ Backup failed at stage `{result.get('stage', '?')}` ({fails} consecutive)."
     if fails >= 2:
-        notify.send_text(msg + " Please check logs.", urgent=True, kind="system")
+        notify.send_text(msg + " Please check logs.", urgent=True,
+                         kind="system", audience="all")
     else:
-        notify.send_text(msg, urgent=False, kind="system")
+        notify.send_text(msg, urgent=False, kind="system", audience="all")
     return result

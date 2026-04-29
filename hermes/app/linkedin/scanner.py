@@ -41,7 +41,8 @@ def run_once() -> dict[str, int]:
         counts["watched_scanned"] = len(watched_posts)
         posts.extend(watched_posts)
     except playwright_scanner.LinkedInBlockedError as e:
-        notify.send_text(f"⚠️ LinkedIn scanner blocked: {e}", urgent=True, kind="system")
+        notify.send_text(f"⚠️ LinkedIn scanner blocked: {e}",
+                         urgent=True, kind="system", audience="all")
         return counts
     except Exception:
         log.exception("watched-people scan failed")
@@ -55,7 +56,7 @@ def run_once() -> dict[str, int]:
         # already pinged above if it was blocked there; if it triggers here only,
         # ping once more.
         notify.send_text("⚠️ LinkedIn feed scanner blocked. Cookies may have expired.",
-                         urgent=True, kind="system")
+                         urgent=True, kind="system", audience="all")
         return counts
     except Exception:
         log.exception("feed scan failed")

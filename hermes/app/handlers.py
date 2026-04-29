@@ -18,6 +18,7 @@ from .slack import actions as slack_actions, auth as slack_auth
 
 log = logging.getLogger("hermes.handlers")
 
+import os
 import re as _re
 _HANDLERS_EMAIL_RE = _re.compile(r"[\w._%+-]+@[\w.-]+\.[A-Za-z]{2,}")
 
@@ -50,16 +51,26 @@ def _bump_approval_counter() -> None:
 # ────────────────────────── auth gate ──────────────────────────
 
 
-def _is_nikki(update: Update) -> bool:
+def _authorized_ids() -> set[str]:
+    """All chat IDs allowed to issue commands and tap buttons."""
+    raw = os.environ.get("TELEGRAM_AUTHORIZED_CHAT_IDS", "")
+    if raw:
+        return {x.strip() for x in raw.split(",") if x.strip()}
+    # Migration fallback: legacy single primary chat is the only authorized one.
+    legacy = (os.environ.get("TELEGRAM_PRIMARY_CHAT_ID")
+              or os.environ.get("TELEGRAM_CHAT_ID") or "")
+    return {legacy} if legacy else set()
+
+
+def _is_authorized(update: Update) -> bool:
     chat_id = str(update.effective_chat.id) if update.effective_chat else ""
-    allowed = env("TELEGRAM_CHAT_ID")
-    return chat_id == allowed
+    return chat_id in _authorized_ids()
 
 
 async def _gate(update: Update) -> bool:
-    if _is_nikki(update):
+    if _is_authorized(update):
         return True
-    log.warning("ignoring message from non-Nikki chat %s", update.effective_chat)
+    log.warning("ignoring message from unauthorized chat %s", update.effective_chat)
     return False
 
 

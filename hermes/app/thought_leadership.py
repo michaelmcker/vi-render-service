@@ -104,7 +104,7 @@ def run_weekly() -> dict[str, str]:
     except llm.LLMError:
         log.exception("thought-leadership synthesis failed")
         notify.send_text("⚠️ Thought-leadership weekly run failed. Try `/tl-run` later.",
-                         urgent=True, kind="system")
+                         urgent=True, kind="system", audience="all")
         return {"status": "failed"}
 
     body = draft.strip() if isinstance(draft, str) else str(draft)
