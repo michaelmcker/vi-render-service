@@ -69,7 +69,11 @@ SCOPES = [
 
 
 def authorize() -> Credentials:
-    """Run the one-time interactive OAuth flow on the Mac. Saves a refresh token."""
+    """LEGACY: localhost flow used by the Mac path (Desktop-app client).
+
+    On the droplet path use the web-app helpers below instead — the public
+    callback URL avoids needing a browser on the daemon host.
+    """
     if not CLIENT_SECRETS.exists():
         raise FileNotFoundError(
             f"Missing {CLIENT_SECRETS}. Download the OAuth client JSON from "
@@ -78,6 +82,42 @@ def authorize() -> Credentials:
         )
     flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRETS), SCOPES)
     creds = flow.run_local_server(port=8080, prompt="consent", access_type="offline")
+    _save(creds)
+    return creds
+
+
+# ───────────────────── Web Application flow (droplet path) ─────────────────────
+
+def web_authorize_url(redirect_uri: str, state: str) -> str:
+    """Build the URL Nikki gets redirected to. The Web Application OAuth
+    client in Google Cloud Console must list `redirect_uri` as an Authorized
+    redirect URI.
+    """
+    if not CLIENT_SECRETS.exists():
+        raise FileNotFoundError(
+            f"Missing {CLIENT_SECRETS}. Switch the Google OAuth client to "
+            "**Web application** type, add the droplet's public callback "
+            "URL as an Authorized redirect URI, download the JSON, and "
+            "save it there."
+        )
+    from google_auth_oauthlib.flow import Flow
+    flow = Flow.from_client_secrets_file(str(CLIENT_SECRETS),
+                                         scopes=SCOPES, redirect_uri=redirect_uri)
+    auth_url, _ = flow.authorization_url(
+        access_type="offline", prompt="consent",
+        include_granted_scopes="false", state=state,
+    )
+    return auth_url
+
+
+def web_complete_authorize(redirect_uri: str, full_callback_url: str) -> Credentials:
+    """Exchange the authorization code (in `full_callback_url`'s query
+    string) for a refresh token. Saves to secrets/google_token.json."""
+    from google_auth_oauthlib.flow import Flow
+    flow = Flow.from_client_secrets_file(str(CLIENT_SECRETS),
+                                         scopes=SCOPES, redirect_uri=redirect_uri)
+    flow.fetch_token(authorization_response=full_callback_url)
+    creds = flow.credentials
     _save(creds)
     return creds
 

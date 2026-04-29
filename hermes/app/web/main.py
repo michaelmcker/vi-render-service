@@ -23,6 +23,8 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import os
+import secrets as _secrets
+import time
 from pathlib import Path
 from typing import Any
 
@@ -279,17 +281,97 @@ def _tail(path: Path, n: int) -> str:
 
 # ─────────────────────── OAuth (stubs — Phase 4) ───────────────────────
 
-@app.get("/connect/google", response_class=HTMLResponse)
+def _public_callback_url(path: str) -> str:
+    base = os.environ.get("HERMES_PUBLIC_URL", "").rstrip("/")
+    if not base:
+        raise HTTPException(500, "HERMES_PUBLIC_URL not configured")
+    return f"{base}{path}"
+
+
+def _issue_oauth_state(provider: str) -> str:
+    token = _secrets.token_urlsafe(32)
+    state.kv_set(f"oauth_state:{provider}:{token}", str(int(time.time())))
+    return token
+
+
+def _consume_oauth_state(provider: str, token: str, *, ttl: int = 600) -> bool:
+    if not token:
+        return False
+    saved = state.kv_get(f"oauth_state:{provider}:{token}", "")
+    if not saved:
+        return False
+    if int(time.time()) - int(saved) > ttl:
+        state.kv_set(f"oauth_state:{provider}:{token}", "")
+        return False
+    state.kv_set(f"oauth_state:{provider}:{token}", "")  # one-shot
+    return True
+
+
+@app.get("/connect/google")
 async def connect_google(request: Request, user: str = Depends(require_user)):
+    """Kick off the Web Application OAuth flow."""
+    from ..google import auth as gauth
+    try:
+        redirect_uri = _public_callback_url("/oauth/google/callback")
+    except HTTPException:
+        return templates.TemplateResponse("placeholder.html", {
+            "request": request, "user": user,
+            "title": "Google OAuth — not configured",
+            "body": (
+                "Set <code>HERMES_PUBLIC_URL</code> in <code>.env</code> "
+                "(e.g. <code>https://hermes.vi.com</code>) and add "
+                "<code>{public_url}/oauth/google/callback</code> as an "
+                "Authorized redirect URI on the OAuth client in Google "
+                "Cloud Console. Then reload this page."
+            ),
+        })
+    state_token = _issue_oauth_state("google")
+    try:
+        auth_url = gauth.web_authorize_url(redirect_uri, state_token)
+    except FileNotFoundError as e:
+        return templates.TemplateResponse("placeholder.html", {
+            "request": request, "user": user,
+            "title": "Google OAuth — client missing",
+            "body": str(e),
+        })
+    return RedirectResponse(auth_url, status_code=303)
+
+
+@app.get("/oauth/google/callback", response_class=HTMLResponse)
+async def oauth_google_callback(request: Request, user: str = Depends(require_user)):
+    """Receive Google's redirect, exchange code, save refresh token."""
+    from ..google import auth as gauth
+    qs = dict(request.query_params)
+    if "error" in qs:
+        return templates.TemplateResponse("placeholder.html", {
+            "request": request, "user": user,
+            "title": "Google OAuth — declined",
+            "body": f"Google returned an error: <code>{qs.get('error', '')}</code>. "
+                    "Try again from the Status page.",
+        })
+    state_token = qs.get("state", "")
+    if not _consume_oauth_state("google", state_token):
+        raise HTTPException(400, "OAuth state token invalid or expired — start over.")
+
+    redirect_uri = _public_callback_url("/oauth/google/callback")
+    full_url = str(request.url)
+    try:
+        gauth.web_complete_authorize(redirect_uri, full_url)
+    except Exception as e:
+        log.exception("oauth callback failed")
+        return templates.TemplateResponse("placeholder.html", {
+            "request": request, "user": user,
+            "title": "Google OAuth — exchange failed",
+            "body": f"<pre>{e}</pre>",
+        })
+
     return templates.TemplateResponse("placeholder.html", {
         "request": request, "user": user,
-        "title": "Google OAuth",
+        "title": "Google connected ✅",
         "body": (
-            "Phase 4 wires up the web-app OAuth flow. Right now Google "
-            "OAuth is bootstrapped via "
-            "<code>python -m app.oauth_setup google</code> on the droplet "
-            "(localhost flow). Once Phase 4 lands, this button will start "
-            "the Web Application OAuth flow against a public callback URL."
+            "Refresh token saved. Hermes will pick it up automatically on "
+            "the next API call. "
+            '<a class="text-blue-400 hover:underline" href="/">Back to status</a>.'
         ),
     })
 

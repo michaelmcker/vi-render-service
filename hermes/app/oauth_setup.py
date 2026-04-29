@@ -1,13 +1,18 @@
 """One-time OAuth + connectivity setup.
 
 Usage:
-    python -m app.oauth_setup google             # run Google OAuth flow
+    python -m app.oauth_setup google             # legacy localhost flow (Mac path)
     python -m app.oauth_setup linkedin-cookies   # save secondary LinkedIn cookies
     python -m app.oauth_setup test-telegram      # send a test message
     python -m app.oauth_setup test-slack         # check Slack tokens
     python -m app.oauth_setup test-codex         # confirm `codex exec` works (primary brain)
     python -m app.oauth_setup test-claude        # confirm `claude -p` works (tool)
     python -m app.oauth_setup all                # do everything in sequence
+
+For the droplet path: Google OAuth runs through the web UI instead — visit
+HERMES_PUBLIC_URL/connect/google in a browser (Cloudflare Access required).
+The OAuth client in Google Cloud Console must be type **Web application** with
+HERMES_PUBLIC_URL/oauth/google/callback as an Authorized redirect URI.
 """
 from __future__ import annotations
 
